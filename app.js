@@ -5,9 +5,6 @@ var logger = require('morgan');
 var cookieParser = require('cookie-parser');
 var bodyParser = require('body-parser');
 
-var routes = require('./routes/index');
-var users = require('./routes/users');
-
 var app = express();
 
 var fs = require('fs');
@@ -31,8 +28,10 @@ app.use(express_session({
   saveUninitialized: true
 }));
 
-app.use('/', routes);
-app.use('/users', users);
+
+app.use( '/',      require('./routes/index') );
+app.use( '/auth',  require('./routes/oauth') );
+app.use( '/users', require('./routes/users') );
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
@@ -45,7 +44,7 @@ app.use(function(req, res, next) {
 
 // development error handler
 // will print stacktrace
-if (app.get('env') === 'development') {
+if (app.get('env') !== 'production') {
   app.use(function(err, req, res, next) {
     res.status(err.status || 500);
     res.render('error', {
@@ -64,6 +63,7 @@ app.use(function(err, req, res, next) {
     error: {}
   });
 });
+
 
 function get_secret_sync() {
   var filename = 'config/session_secret',
