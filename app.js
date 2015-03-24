@@ -11,6 +11,10 @@ var contacts = require('./routes/contacts');
 
 var app = express();
 
+var fs = require('fs');
+
+var express_session = require('express-session');
+
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'jade');
@@ -22,6 +26,11 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
+app.use(express_session({
+  secret: get_secret_sync(),
+  resave: true,
+  saveUninitialized: true
+}));
 
 app.use('/', routes);
 app.use('/users', users);
@@ -58,5 +67,23 @@ app.use(function(err, req, res, next) {
   });
 });
 
+function get_secret_sync() {
+  var filename = 'config/session_secret',
+      string   = "";
+  try {
+    string = fs.readFileSync(filename);
+  } catch (e) {
+    while (string.length<500) {
+      string += String.fromCharCode( Math.floor( Math.random() * 94 ) + 33);
+    }
+    console.log("Generated new secret session key");
+    console.log("[ ======================================== ]");
+    console.log(string);
+    console.log("[ ======================================== ]");
+    console.log("Saving to "+filename+"...");
+    fs.writeFileSync(filename, string);
+  }
+  return string;
+}
 
 module.exports = app;
