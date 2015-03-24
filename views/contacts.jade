@@ -12,28 +12,50 @@ block content
              data-date-start='#{batch.start_date}'
              data-date-end='#{batch.end_date}')
             h3= batch.name
+            input(type='checkbox'
+                  name='people-batch-#{batch.id}')
             .people
 
 block scripts
   script.
+    // Top Save button
+    $('.save-contacts').on('click', function () {
+      var checked = $('input:checked');
+      LOL = checked;
+      console.log('Checked:', checked);
+    });
+
+    // Batch loading
     document.getElementById('batches').addEventListener('click', function (e) {
-      var target = $(e.target).parents('li');
-      //if (target && target.nodeName == 'H3') {
-        var people = target.find('.people');
+      var trgt = $(e.target);
 
-        if (people.find('.person').length > 0) {
-          people.toggle();
-        } else {
-          target.addClass('loading');
-
-          var batchId = target.data('id');
-          requestBatch(
-            batchId,
-            loadBatch.bind(window, $('[data-id="' + batchId + '"] .people')),
-            showError
-          );
+      // If is an input, check what kind of input
+      if (trgt.is('input')) {
+        // If is a batch input, toogle of the inputs of its people
+        if (trgt.attr('name').indexOf('people-batch') > -1) {
+          var checkedStatus = trgt.attr('checked');
+          $(trgt).parents('.batch').find('.person').forEach(function (item) {
+            $(item).find('input').attr('checked', checkedStatus || null);
+          });
         }
-      //}
+        return;
+      }
+
+      var target = $(e.target).parents('li');
+      var people = target.find('.people');
+
+      if (people.find('.person').length > 0) {
+        people.toggle();
+      } else {
+        target.addClass('loading');
+
+        var batchId = target.data('id');
+        requestBatch(
+          batchId,
+          loadBatch.bind(window, $('[data-id="' + batchId + '"] .people')),
+          showError
+        );
+      }
     });
 
     /**

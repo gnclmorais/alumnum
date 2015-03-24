@@ -3,7 +3,7 @@ each person in people
     .photo
       img(src='#{person.image}')
       input(type='checkbox'
-            name='person')
+            name='person-#{person.id}')
     .info
       - var middle = person.middle_name ? ' ' + person.middle_name + ' ' : ' ';
       p.name= person.first_name + middle + person.last_name

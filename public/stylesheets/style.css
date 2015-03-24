@@ -17,4 +17,5 @@ a {
 
     .batch {
       cursor: pointer;
+      -webkit-user-select: none;
     }
