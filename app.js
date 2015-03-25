@@ -4,10 +4,7 @@ var favicon = require('serve-favicon');
 var logger = require('morgan');
 var cookieParser = require('cookie-parser');
 var bodyParser = require('body-parser');
-
-var routes = require('./routes/index');
-var users = require('./routes/users');
-var contacts = require('./routes/contacts');
+var passport = require('passport');
 
 var app = express();
 
@@ -26,15 +23,19 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
-app.use(express_session({
-  secret: get_secret_sync(),
-  resave: true,
-  saveUninitialized: true
-}));
+// app.use(express_session({
+//   secret: get_secret_sync(),
+//   resave: true,
+//   saveUninitialized: true
+// }));
+app.use(passport.initialize());
+app.use(passport.session());
 
-app.use('/', routes);
-app.use('/users', users);
-app.use('/contacts', contacts);
+app.use('/',         require('./routes/index'));
+//app.use('/auth',     require('./routes/oauth'));
+app.use('/users',    require('./routes/users'));
+app.use('/contacts', require('./routes/contacts'));
+app.use('/auth', require('./routes/passport'));
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
@@ -47,7 +48,7 @@ app.use(function(req, res, next) {
 
 // development error handler
 // will print stacktrace
-if (app.get('env') === 'development') {
+if (app.get('env') !== 'production') {
   app.use(function(err, req, res, next) {
     res.status(err.status || 500);
     res.render('error', {
@@ -66,6 +67,7 @@ app.use(function(err, req, res, next) {
     error: {}
   });
 });
+
 
 function get_secret_sync() {
   var filename = 'config/session_secret',

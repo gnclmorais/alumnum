@@ -2,6 +2,12 @@ var express = require('express');
 var router = express.Router();
 
 router.get('/', function (req, res, next) {
+  if (req.isAuthenticated) {
+    console.log(req.isAuthenticated());
+  } else {
+    console.log('Not logged in!');
+  }
+
   // TODO Request the list of people to an endpoint;
   // For now, just mock it.
   var batches = [{

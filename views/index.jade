@@ -1,5 +1,15 @@
 extends layout
 
 block content
-  h1= title
-  p Welcome to #{title}
+  h1 Alumnum
+  p You Hacker School phonebook management tool.
+
+  .instructions
+    ol
+      li Login with your Hacker School account
+      li Give the app permissions to edit your Google Contacts
+      li Select the contacts you want to add/remove
+      li Hit &lsquo;Save&rsquo; and you&rsquo;ll have everything synced!
+
+  .login
+    a(href='auth') Login
