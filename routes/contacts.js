@@ -1,13 +1,16 @@
 var express = require('express');
 var router = express.Router();
 
-router.get('/', function (req, res, next) {
-  if (req.isAuthenticated) {
-    console.log(req.isAuthenticated());
-  } else {
-    console.log('Not logged in!');
-  }
+// route middleware to make sure a user is logged in
+function isLoggedIn(req, res, next) {
+  // if user is authenticated in the session, carry on
+  if (req.isAuthenticated())
+    return next();
+  // if they aren't redirect them to the home page
+  res.redirect('/auth');
+}
 
+router.get('/', isLoggedIn, function (req, res, next) {
   // TODO Request the list of people to an endpoint;
   // For now, just mock it.
   var batches = [{

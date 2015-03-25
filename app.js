@@ -1,4 +1,5 @@
 var express = require('express');
+var session = require('express-session');
 var path = require('path');
 var favicon = require('serve-favicon');
 var logger = require('morgan');
@@ -9,8 +10,6 @@ var passport = require('passport');
 var app = express();
 
 var fs = require('fs');
-
-var express_session = require('express-session');
 
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
@@ -28,6 +27,12 @@ app.use(express.static(path.join(__dirname, 'public')));
 //   resave: true,
 //   saveUninitialized: true
 // }));
+
+app.use(session({
+  secret: 'keyboard cat',
+  resave: 'true',
+  saveUninitialized: 'false'
+}));
 app.use(passport.initialize());
 app.use(passport.session());
 

@@ -18,7 +18,7 @@ passport.deserializeUser(function (user, done) {
 
 // Hacker School
 var hackerschool = keyfile.hackerschool;
-var hackerschoolBase = 'https://www.hackerschool.com';
+var hackerschoolBase = 'https://www.recurse.com';
 passport.use('hackerschool', new OAuth2Strategy({
     clientID:     hackerschool.clientId,
     clientSecret: hackerschool.clientSecret,
@@ -29,14 +29,15 @@ passport.use('hackerschool', new OAuth2Strategy({
   function (accessToken, refreshToken, profile, done) {
     console.log(accessToken, refreshToken, profile);
 
-    return done(null, accessToken);
+    process.nextTick(function() {
+      return done(null, profile);
+    });
   }
 ));
 
 // Google
 var google = keyfile.google;
-var googleBase = 'https://www.hackerschool.com';
-passport.use(new GoogleStrategy({
+passport.use('google', new GoogleStrategy({
     clientID: google.clientId,
     clientSecret: google.clientSecret,
     callbackURL: google.callbackUrl
@@ -44,7 +45,9 @@ passport.use(new GoogleStrategy({
   function (accessToken, refreshToken, profile, done) {
     //console.log(accessToken, refreshToken, profile);
 
-    return done(null, accessToken);
+    process.nextTick(function() {
+      return done(null, profile);
+    });
   }
 ));
 
@@ -75,12 +78,22 @@ router.get('/google', passport.authenticate('google', {
 }));
 
 router.get('/google/callback', passport.authenticate('google', {
+  successRedirect : '/contacts',
   failureRedirect: '/error'
-}), function (req, res) {
+})/*, function (req, res) {
   console.log('Google success!');
 
   // Successful authentication, redirect home.
   res.redirect('/contacts');
-});
+}*/);
+
+// route middleware to make sure a user is logged in
+function isLoggedIn(req, res, next) {
+  // if user is authenticated in the session, carry on
+  if (req.isAuthenticated())
+    return next();
+  // if they aren't redirect them to the home page
+  res.redirect('/');
+}
 
 module.exports = router;
