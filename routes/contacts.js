@@ -1,5 +1,6 @@
 var express = require('express');
 var router = express.Router();
+var request = require('request');
 
 // route middleware to make sure a user is logged in
 function isLoggedIn(req, res, next) {
@@ -13,27 +14,41 @@ function isLoggedIn(req, res, next) {
 router.get('/', isLoggedIn, function (req, res, next) {
   // TODO Request the list of people to an endpoint;
   // For now, just mock it.
-  var batches = [{
-    "id": 17,
-    "name": "Spring 1, 2015",
-    "start_date": "2015-02-16",
-    "end_date": "2015-05-07"
-  }, {
-    "id": 15,
-    "name": "Winter 2, 2015",
-    "start_date": "2015-01-05",
-    "end_date": "2015-03-26"
-  }, {
-    "id": 2,
-    "name": "Fall 2011 (aka Batch[1])",
-    "start_date": "2011-09-27",
-    "end_date": "2011-12-15"
-  }, {
-    "id": 1,
-    "name": "Summer 2011 (aka Batch[0])",
-    "start_date": "2011-07-18",
-    "end_date": "2011-08-18"
-  }];
+  var batches = [
+    {
+      "id": 17,
+      "name": "Spring 1, 2015",
+      "start_date": "2015-02-16",
+      "end_date": "2015-05-07"
+    }, {
+      "id": 15,
+      "name": "Winter 2, 2015",
+      "start_date": "2015-01-05",
+      "end_date": "2015-03-26"
+    }, {
+      "id": 2,
+      "name": "Fall 2011 (aka Batch[1])",
+      "start_date": "2011-09-27",
+      "end_date": "2011-12-15"
+    }, {
+      "id": 1,
+      "name": "Summer 2011 (aka Batch[0])",
+      "start_date": "2011-07-18",
+      "end_date": "2011-08-18"
+    }
+  ];
+
+  request('https://www.recurse.com/api/v1/batches', function (error, response, body) {
+    if (error) {
+      console.log(error)
+    }
+
+    console.log(response.statusCode);
+
+    if (!error && response.statusCode == 200) {
+      console.log(body) // Show the HTML for the Google homepage.
+    }
+  })
 
   res.render('contacts', {
     batches: batches

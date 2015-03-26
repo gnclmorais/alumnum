@@ -5,6 +5,8 @@ var OAuth2Strategy = require('passport-oauth').OAuth2Strategy;
 var GoogleStrategy = require('passport-google-oauth').OAuth2Strategy;
 var keyfile = require('../config/api_keys');
 
+var request = require('request');
+
 /**
  * Setup a few things for Passport
  */
@@ -30,6 +32,27 @@ passport.use('hackerschool', new OAuth2Strategy({
     console.log(accessToken, refreshToken, profile);
 
     process.nextTick(function() {
+
+
+
+  request('https://www.recurse.com/api/v1/batches?access_token=' + accessToken, function (error, response, body) {
+    if (error) {
+      console.log(error)
+    }
+
+
+    console.log('Access:', accessToken);
+    console.log('Status:', response.statusCode);
+
+    if (!error && response.statusCode == 200) {
+      console.log(body) // Show the HTML for the Google homepage.
+    }
+  })
+
+
+
+
+
       return done(null, profile);
     });
   }
