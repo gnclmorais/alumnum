@@ -73,16 +73,35 @@ router.get('/google/callback', passport.authenticate('google', {
 }));
 
 // Request a batches' contacts
-router.get('/:id', isLoggedIn, function (req, res, next) {
+router.get('/:bid', isLoggedIn, function (req, res, next) {
+  var bid = req.params.bid;
   // TODO Request the list of people to an endpoint;
   // For now, just mock it.
 
 
-  res.render('people', {
-    people: people
-  }, function (err, html) {
-    res.send(html);
-  });
+
+
+
+
+
+
+  var successFn = function (people) {
+    people = JSON.parse(people);
+
+    console.log('People:', people);
+
+    res.render('people', {
+      people: people
+    }, function (err, html) {
+      res.send(html);
+    });
+  };
+
+  var failureFn = function (a, b, c) {
+    console.log('ERROR:', a, b, c)
+  };
+
+  recurseapi.getContacts(bid, successFn, failureFn);
 });
 
 
@@ -216,16 +235,23 @@ var recurseapi = (function () {
    * @param  {Function}       Callback to handle the response.
    * @return {[type]}
    */
-  function getContacts(batchId, callback) {
-    if (!this.token || batchId !== parseInt(batchId, 10)) {
+  function getContacts(batchId, success, failure) {
+    console.log('getContacts start', this.token, batchId,
+      !this.token, batchId !== parseInt(batchId, 10));
+
+    if (!this.token || parseInt(batchId, 10) === NaN) {
+      console.log('getContacts OUT!');
       return;
     }
 
     var url = people.replace(/:batch_id/g, batchId);
+    console.log('URL:', url);
 
     // TODO
     // Will 200 restrict me on a few answers...?
     apireq.get(url, function (error, response, body) {
+      console.log(getContacts, error, response, body);
+
       if (!error && response.statusCode == 200) {
         success(body);
       } else {
