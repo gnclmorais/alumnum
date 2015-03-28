@@ -1,6 +1,7 @@
 var express = require('express');
 var router = express.Router();
 var request = require('request');
+require('request').debug = true;  // Turn debug on
 // Authentication
 var passport = require('passport');
 var OAuth2Strategy = require('passport-oauth').OAuth2Strategy;
@@ -36,7 +37,7 @@ router.get('/', isLoggedIn, function (req, res, next) {
   var successFn = function (batches) {
     batches = JSON.parse(batches);
 
-    console.log('Batches:', batches);
+    //console.log('Batches:', batches);
 
     res.render('contacts', {
       batches: batches
@@ -78,9 +79,18 @@ router.get('/:bid', isLoggedIn, function (req, res, next) {
   // TODO Request the list of people to an endpoint;
   // For now, just mock it.
 
+  // var successFn = function (contacts) {
+  //   contacts = JSON.parse(batches);
 
+  //   console.log(contacts);
+  // };
 
+  // var failureFn = function (err) {
+  //   console.log('ERROR:', err)
+  // };
 
+  //googleapi.retrieveContacts(successFn, failureFn);
+  googleapi.createGroup('testGroup');
 
 
 
@@ -88,7 +98,7 @@ router.get('/:bid', isLoggedIn, function (req, res, next) {
   var successFn = function (people) {
     people = JSON.parse(people);
 
-    console.log('People:', people);
+    //console.log('People:', people);
 
     res.render('people', {
       people: people
@@ -152,6 +162,8 @@ passport.use('google', new GoogleStrategy({
   // Store accessToken
 
   process.nextTick(function () {
+    googleapi.setToken(accessToken);
+
     return done(null, profile);
   });
 }));
@@ -236,21 +248,16 @@ var recurseapi = (function () {
    * @return {[type]}
    */
   function getContacts(batchId, success, failure) {
-    console.log('getContacts start', this.token, batchId,
-      !this.token, batchId !== parseInt(batchId, 10));
-
     if (!this.token || parseInt(batchId, 10) === NaN) {
-      console.log('getContacts OUT!');
       return;
     }
 
     var url = people.replace(/:batch_id/g, batchId);
-    console.log('URL:', url);
 
     // TODO
     // Will 200 restrict me on a few answers...?
     apireq.get(url, function (error, response, body) {
-      console.log(getContacts, error, response, body);
+      //console.log(getContacts, error, response, body);
 
       if (!error && response.statusCode == 200) {
         success(body);
@@ -282,11 +289,110 @@ var recurseapi = (function () {
 }());
 
 var googleapi = (function () {
+  // HTTP header:  GData-Version: 3.0
+  // Query param:  v=3.0
+  // JSON Request: alt=json
+
+  //var base = 'https://www.google.com/m8/feeds/contacts/default/full/batch';
+  var base = 'https://www.google.com/m8/feeds/contacts/default/full';
+  var token = null;
+
+  // Get base object (can be extended after, using it as constructor)
+  var apireq = request.defaults({
+    //baseUrl: base
+  });
+
+  function retrieveContacts(successFn, failureFn) {
+    if (!this.token) {
+      return;
+    }
+
+    var url = base;
+
+    console.log('URL:  ', url);
+    console.log('TOKEN:', this.token);
+    //return
+
+    // TODO
+    // Will 200 restrict me on a few answers...?
+    apireq.get(url, function (error, response, body) {
+      if (!error && response.statusCode == 200) {
+        successFn(body);
+      } else {
+        failureFn(error);
+      }
+    });
+  }
+
+  function createGroup(name) {
+    console.log('name', name);
+
+    if (!this.token || !name) {
+      return;
+    }
+
+    name = 'RC ~ ' + name;
+    var url = 'https://www.google.com/m8/feeds/groups/default/full';
+    var entry = '<entry xmlns:gd="http://schemas.google.com/g/2005">'
+      + '<category scheme="http://schemas.google.com/g/2005#kind"'
+      + '    term="http://schemas.google.com/contact/2008#group"/>'
+      + '  <title type="text">' + name + '</title>'
+      + '  <gd:extendedProperty name="description">'
+      + '    <info>Recourse Center batch of ' + name + '</info>'
+      + '  </gd:extendedProperty>'
+      + '</entry>';
+    var contentType = 'application/atom+xml';
+
+    console.log(entry)
+
+    apireq.post({
+      url: url,
+      body: entry,
+      headers: {
+        'content-type': 'application/atom+xml'
+      }
+    }, function (err, res, msg) {
+      if (err) {
+        // TODO
+      }
+
+      console.log('Error? ', err);
+      console.log('Status:', res.statusCode);
+      console.log('Messag:', msg);
+
+
+    }, function (a, b, c) {
+      console.log('GROUP ERROR:', a, b, c);
+    });
+
+    // Response should be HTTP/1.1 201 Created
+  }
+
   function saveContacts(contacts) {
+    // TODO
+  }
+
+  function setToken(accessToken) {
+    if (accessToken && typeof accessToken === 'string') {
+      this.token = accessToken;
+
+      // Get a new request object, using the previous one as constructor
+      // (in order to keep the previous options).
+      apireq = apireq.defaults({
+        qs: {
+          access_token: this.token,
+          v: '3.0',
+          alt: 'json'
+        }
+      });
+    }
   }
 
   return {
-    'saveContacts': saveContacts
+    'retrieveContacts': retrieveContacts,
+    'saveContacts': saveContacts,
+    'createGroup': createGroup,
+    'setToken': setToken
   };
 }());
 
