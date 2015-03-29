@@ -35,9 +35,11 @@ var google = keyfile.google;
  */
 router.get('/', isLoggedIn, function (req, res, next) {
   var successFn = function (batches) {
-    batches = JSON.parse(batches);
+    if (typeof batches === 'string') {
+      batches = JSON.parse(batches);
+    }
 
-    //console.log('Batches:', batches);
+    console.log('Batches:', batches);
 
     res.render('contacts', {
       batches: batches
@@ -73,6 +75,30 @@ router.get('/google/callback', passport.authenticate('google', {
   failureRedirect: '/error'
 }));
 
+// Get the batches' IDs and store the people's contacts
+router.get('/save', /*isLoggedIn,*/ function (req, res, next) {
+  var ids = req.query.ids;
+
+  // Raise error if no IDs provided
+  if (!ids) {
+    // TODO
+  }
+
+  // Get the batches' IDs into an array
+  ids = req.query.ids.split(',');
+  if (ids.length) {
+    // TODO
+    // 1. For each ID, check if we have the students
+    //    a) If not, request them
+    // 2. If/when we have them, create a group for each batch
+    // 3. After the groups are created, batch-insert the people on them
+  }
+
+  res.render('index', {
+    title: ids.join(',')
+  });
+});
+
 // Request a batches' contacts
 router.get('/:bid', isLoggedIn, function (req, res, next) {
   var bid = req.params.bid;
@@ -89,14 +115,17 @@ router.get('/:bid', isLoggedIn, function (req, res, next) {
   //   console.log('ERROR:', err)
   // };
 
-  //googleapi.retrieveContacts(successFn, failureFn);
-  googleapi.createGroup('testGroup');
+  // TODO
+  // 1. Create the group
+  //googleapi.createGroup('testGroup');
+  // 2. Put everyone on the newly created group
+  //googleapi.createGroup('testGroup');
 
 
 
 
   var successFn = function (people) {
-    people = JSON.parse(people);
+    console.log(typeof people);
 
     //console.log('People:', people);
 
@@ -113,7 +142,6 @@ router.get('/:bid', isLoggedIn, function (req, res, next) {
 
   recurseapi.getContacts(bid, successFn, failureFn);
 });
-
 
 /**
  *        _                        ___
@@ -213,6 +241,12 @@ var recurseapi = (function () {
   var people  = '/api/v1/batches/:batch_id/people';
   var token   = null;
 
+  // Cache object, holds batches & people
+  var _cache = {
+    batches: null,
+    people:  {}
+  }
+
   // Get base object (can be extended after, using it as constructor)
   var apireq = request.defaults({
     baseUrl: base
@@ -223,9 +257,14 @@ var recurseapi = (function () {
    * @param  {Function} Callback to handle the response.
    * @return {[type]}
    */
-  function getBatches(success, failure) {
+  function getBatches(successFn, failureFn) {
     if (!this.token) {
       return;
+    }
+
+    // Return cached result
+    if (_cache.batches) {
+      successFn(_cache.batches);
     }
 
     var url = batches;
@@ -233,10 +272,23 @@ var recurseapi = (function () {
     // TODO
     // Will 200 restrict me on a few answers...?
     apireq.get(url, function (error, response, body) {
+      // If correct, `body` will be:
+      // [
+      //   {
+      //     id: 17,
+      //     name: 'Spring 1, 2015',
+      //     start_date: '2015-02-16',
+      //     end_date: '2015-05-07'
+      //   }
+      //   ...
+      // ]
       if (!error && response.statusCode == 200) {
-        success(body);
+        // Cache the result first
+        _cache.batches = JSON.parse(body);
+
+        successFn(body);
       } else {
-        failure(error);
+        failureFn(error);
       }
     });
   }
@@ -247,9 +299,16 @@ var recurseapi = (function () {
    * @param  {Function}       Callback to handle the response.
    * @return {[type]}
    */
-  function getContacts(batchId, success, failure) {
+  function getContacts(batchId, successFn, failureFn) {
     if (!this.token || parseInt(batchId, 10) === NaN) {
       return;
+    }
+
+    // Check if we have the people already
+    batchId = batchId.toString();
+    var cached = _cache.people;
+    if (cached[batchId]) {
+      return cached[batchId];
     }
 
     var url = people.replace(/:batch_id/g, batchId);
@@ -257,12 +316,16 @@ var recurseapi = (function () {
     // TODO
     // Will 200 restrict me on a few answers...?
     apireq.get(url, function (error, response, body) {
-      //console.log(getContacts, error, response, body);
-
       if (!error && response.statusCode == 200) {
-        success(body);
+        // Cache the result using the batch ID
+        body = JSON.parse(body);
+        cached[batchId] = body;
+
+        console.log('_cache:', _cache);
+
+        successFn(body);
       } else {
-        failure(error);
+        failureFn(error);
       }
     });
   }
@@ -324,6 +387,31 @@ var googleapi = (function () {
     });
   }
 
+  function _personCard(info, group) {
+    return '<atom:entry xmlns:atom="http://www.w3.org/2005/Atom"'
+      + '            xmlns:gd="http://schemas.google.com/g/2005">'
+      + '  <atom:category scheme="http://schemas.google.com/g/2005#kind"'
+      + '    term="http://schemas.google.com/contact/2008#contact"/>'
+      + '  <gd:name>'
+      + '     <gd:fullName>' + info.name + '</gd:fullName>'
+      + '  </gd:name>'
+      + info.email ? ('  <gd:email rel="http://schemas.google.com/g/2005#work"'
+      + '    primary="true"'
+      + '    address="' + info.email + '" />') : ''
+      + info.phone ? ('  <gd:phoneNumber'
+      + '    rel="http://schemas.google.com/g/2005#work"'
+      + '    primary="true">'
+      + info.phone
+      + '  </gd:phoneNumber>') : ''
+      + '  <atom:content type="text">'
+      + info.twitter ? '    Twitter: <twitter.com>' : ''
+      + info.github ? '    GitHub: <github.com>' : ''
+      + '  </atom:content>'
+      + group ? '<gContact:groupMembershipInfo deleted="false"'
+      + '  href="' + group + '"/>' : ''
+      + '</atom:entry>';
+  }
+
   function createGroup(name) {
     console.log('name', name);
 
@@ -360,6 +448,15 @@ var googleapi = (function () {
       console.log('Status:', res.statusCode);
       console.log('Messag:', msg);
 
+      // Successfully created, according to the API documentation
+      if (res.statusCode === 201) {
+        msg = JSON.parse(msg);
+        var id = msg.entry.id.$t;
+
+        // TODO
+        // Now attach everyone to this group
+      }
+
 
     }, function (a, b, c) {
       console.log('GROUP ERROR:', a, b, c);
@@ -368,8 +465,20 @@ var googleapi = (function () {
     // Response should be HTTP/1.1 201 Created
   }
 
-  function saveContacts(contacts) {
-    // TODO
+  function saveContacts(groupId, people) {
+    var contacts = contacts.map(function (contact) {
+      return this._personCard({
+        // TODO
+      }, groupId);
+    }.bind(this));
+
+    // <entry gd:etag='contactEtag'>
+    //   <id>http://www.google.com/m8/feeds/contacts/userEmail/base/contactId</id>
+    //   ...
+    //   <gContact:groupMembershipInfo deleted='false'
+    //     href='http://www.google.com/m8/feeds/groups/userEmail/base/groupId'/>
+    //   ...
+    // </entry>
   }
 
   function setToken(accessToken) {

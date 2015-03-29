@@ -18,16 +18,38 @@ block content
              data-date-end='#{batch.end_date}')
             h3= batch.name
             input(type='checkbox'
-                  name='people-batch-#{batch.id}')
+                  name='people-batch-#{batch.id}'
+                  data-id='#{batch.id}')
             .people
 
 block scripts
   script.
     // Top Save button
     $('.save-contacts').on('click', function () {
-      var checked = $('input:checked');
-      LOL = checked;
-      console.log('Checked:', checked);
+      var checked = $('input[name^="people-batch-"]:checked');
+
+      if (checked.length) {
+        // 1. Get the IDs
+        // 2. Send them to an endpoint
+        var ids = checked.map(function (checkbox) {
+          return trgt.attr('data-id');
+        });
+
+        var successFn = function (a, b, c) {
+          console.log('save successFn:', a, b, c);
+        };
+        var failureFn = function () {
+          console.log('save failureFn:', a, b, c);
+        };
+
+        $.ajax({
+          type: 'GET',
+          url: '/contacts/save/?ids=' + ids.join(','),
+          timeout: 1000,
+          success: successFn,
+          error: failureFn
+        });
+      }
     });
 
     // Batch loading
