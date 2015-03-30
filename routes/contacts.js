@@ -84,14 +84,39 @@ router.get('/save', /*isLoggedIn,*/ function (req, res, next) {
     // TODO
   }
 
+  // TODO Remove this failsafe
+  return;
+
   // Get the batches' IDs into an array
   ids = req.query.ids.split(',');
   if (ids.length) {
     // TODO
-    // 1. For each ID, check if we have the students
-    //    a) If not, request them
-    // 2. If/when we have them, create a group for each batch
-    // 3. After the groups are created, batch-insert the people on them
+// 1. For each ID, check if we have the students:
+//    a) If not, request them, then proceed when received
+    ids.forEach(function (batchId) {
+      batchId = batchId.toString();
+      if (_cache.people[batchId]) {
+        var people = _cache.people[batchId];
+        var batch = _cache.batches.filter(function (batch) {
+          return batch.id.toString() === batchId;
+        });
+        if (batch.length === 1) {
+          batch = batch[0];
+// 2. If/when we have them, create a group for each batch:
+          googleapi.createGroup(
+            batch.name,
+// 3. After the groups are created, batch-insert the people on them:
+            googleapi.saveContacts.bind(this, people),
+            function (a, b, c) {
+              // TODO
+              console.log(a, b, c);
+            }
+          );
+        } else {
+          // TODO
+        }
+      }
+    }.bind(this));
   }
 
   res.render('index', {
@@ -115,19 +140,21 @@ router.get('/:bid', isLoggedIn, function (req, res, next) {
   //   console.log('ERROR:', err)
   // };
 
-  // TODO
-  // 1. Create the group
-  //googleapi.createGroup('testGroup');
-  // 2. Put everyone on the newly created group
-  //googleapi.createGroup('testGroup');
-
 
 
 
   var successFn = function (people) {
-    console.log(typeof people);
-
-    //console.log('People:', people);
+    // TODO
+    // 1. Create the group
+    googleapi.createGroup(
+      'testGroup',
+      googleapi.saveContacts.bind(this, people),
+      function (err, msg) {
+        console.log('saveContacts error:', err, msg);
+      }
+    );
+    // 2. Put everyone on the newly created group
+    //googleapi.createGroup('testGroup');
 
     res.render('people', {
       people: people
@@ -388,33 +415,45 @@ var googleapi = (function () {
   }
 
   function _personCard(info, group) {
-    return '<atom:entry xmlns:atom="http://www.w3.org/2005/Atom"'
-      + '            xmlns:gd="http://schemas.google.com/g/2005">'
-      + '  <atom:category scheme="http://schemas.google.com/g/2005#kind"'
-      + '    term="http://schemas.google.com/contact/2008#contact"/>'
-      + '  <gd:name>'
+    return '  <gd:name>'
       + '     <gd:fullName>' + info.name + '</gd:fullName>'
       + '  </gd:name>'
-      + info.email ? ('  <gd:email rel="http://schemas.google.com/g/2005#work"'
+      + (info.email ? '  <gd:email rel="http://schemas.google.com/g/2005#work"'
       + '    primary="true"'
-      + '    address="' + info.email + '" />') : ''
-      + info.phone ? ('  <gd:phoneNumber'
+      + '    address="' + info.email + '" />' : '')
+      + (info.phone ? '  <gd:phoneNumber'
       + '    rel="http://schemas.google.com/g/2005#work"'
       + '    primary="true">'
       + info.phone
-      + '  </gd:phoneNumber>') : ''
+      + '  </gd:phoneNumber>' : '')
       + '  <atom:content type="text">'
-      + info.twitter ? '    Twitter: <twitter.com>' : ''
-      + info.github ? '    GitHub: <github.com>' : ''
+      + (info.twitter ? '    Twitter: <twitter.com>' : '')
+      + (info.github ? '    GitHub: <github.com>' : '')
       + '  </atom:content>'
-      + group ? '<gContact:groupMembershipInfo deleted="false"'
-      + '  href="' + group + '"/>' : ''
-      + '</atom:entry>';
+      + (group ? '<gContact:groupMembershipInfo deleted="false"'
+      + '  href="' + group + '"/>' : '');
   }
 
-  function createGroup(name) {
-    console.log('name', name);
+  function _batchAdd(people, group) {
+    var head = '<?xml version="1.0" encoding="UTF-8"?>'
+      + '<feed xmlns="http://www.w3.org/2005/Atom"'
+      + '      xmlns:gContact="http://schemas.google.com/contact/2008"'
+      + '      xmlns:gd="http://schemas.google.com/g/2005"'
+      + '      xmlns:batch="http://schemas.google.com/gdata/batch">';
+    var tail = '</feed>';
 
+    return head + people.map(function (person) {
+      return '<entry>'
+        + '  <batch:id>create</batch:id>'
+        + '  <batch:operation type="insert"/>'
+        + '  <category scheme="http://schemas.google.com/g/2005#kind"'
+        + '    term="http://schemas.google.com/g/2008#contact"/>'
+        + _personCard(person)
+        + '</entry>';
+    }) + tail;
+  }
+
+  function createGroup(name, successFn, failureFn) {
     if (!this.token || !name) {
       return;
     }
@@ -431,8 +470,6 @@ var googleapi = (function () {
       + '</entry>';
     var contentType = 'application/atom+xml';
 
-    console.log(entry)
-
     apireq.post({
       url: url,
       body: entry,
@@ -440,37 +477,53 @@ var googleapi = (function () {
         'content-type': 'application/atom+xml'
       }
     }, function (err, res, msg) {
-      if (err) {
-        // TODO
+      if (err || res.statusCode !== 201) {
+        failureFn(err, res);
+        return;
       }
 
-      console.log('Error? ', err);
-      console.log('Status:', res.statusCode);
-      console.log('Messag:', msg);
+      // String -> JSON
+      msg = JSON.parse(msg);
 
-      // Successfully created, according to the API documentation
-      if (res.statusCode === 201) {
-        msg = JSON.parse(msg);
-        var id = msg.entry.id.$t;
-
-        // TODO
-        // Now attach everyone to this group
-      }
-
-
-    }, function (a, b, c) {
-      console.log('GROUP ERROR:', a, b, c);
+      // Send the group ID (basically, an URL) to the callback
+      var id = msg.entry.id.$t;
+      successFn(id);
     });
-
-    // Response should be HTTP/1.1 201 Created
   }
 
-  function saveContacts(groupId, people) {
-    var contacts = contacts.map(function (contact) {
-      return this._personCard({
-        // TODO
+  function saveContacts(people, groupId) {
+    var contacts = people.map(function (contact) {
+      return _personCard({
+        name:    contact.first_name + ' ' + contact.last_name,
+        email:   contact.email,
+        phone:   contact.phone_number,
+        twitter: contact.twitter,
+        github:  contact.github
       }, groupId);
-    }.bind(this));
+    });
+    var url = 'https://www.google.com/m8/feeds/groups/default/full/batch';
+
+    console.log('CONTACTS FOR GOOGLE:\n', _batchAdd(contacts.slice(0, 3), groupId));
+
+    // apireq.post({
+    //   url: url,
+    //   body: entry,
+    //   headers: {
+    //     'content-type': 'application/atom+xml'
+    //   }
+    // }, function (err, res, msg) {
+    //   if (err || res.statusCode !== 201) {
+    //     failureFn(err, res);
+    //     return;
+    //   }
+
+    //   // String -> JSON
+    //   msg = JSON.parse(msg);
+
+    //   // Send the group ID (basically, an URL) to the callback
+    //   var id = msg.entry.id.$t;
+    //   successFn(id);
+    // });
 
     // <entry gd:etag='contactEtag'>
     //   <id>http://www.google.com/m8/feeds/contacts/userEmail/base/contactId</id>
