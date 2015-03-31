@@ -84,38 +84,52 @@ router.get('/save', /*isLoggedIn,*/ function (req, res, next) {
     // TODO
   }
 
-  // TODO Remove this failsafe
-  return;
-
   // Get the batches' IDs into an array
   ids = req.query.ids.split(',');
   if (ids.length) {
     // TODO
-// 1. For each ID, check if we have the students:
-//    a) If not, request them, then proceed when received
+    // 1. For each ID, check if we have the students:
+    //    a) If not, request them, then proceed when received
     ids.forEach(function (batchId) {
       batchId = batchId.toString();
-      if (_cache.people[batchId]) {
-        var people = _cache.people[batchId];
-        var batch = _cache.batches.filter(function (batch) {
-          return batch.id.toString() === batchId;
-        });
-        if (batch.length === 1) {
-          batch = batch[0];
-// 2. If/when we have them, create a group for each batch:
-          googleapi.createGroup(
-            batch.name,
-// 3. After the groups are created, batch-insert the people on them:
-            googleapi.saveContacts.bind(this, people),
-            function (a, b, c) {
-              // TODO
-              console.log('TODO', a, b, c);
-            }
-          );
-        } else {
-          // TODO
+
+
+      var successFn = function (err, people) {
+        var doneFn = function (batches) {
+          console.log('TYPE:', batches.constructor);
+
+          var batch = batches.filter(function (batch) {
+            return batch.id.toString() === batchId;
+          });
+
+          if (batch.length === 1) {
+            batch = batch[0];
+            // 2. If/when we have them, create a group for each batch:
+            googleapi.createGroup(
+              batch.name,
+              // 3. After the groups are created, batch-insert the people on them:
+              googleapi.saveContacts.bind(this, people),
+              function (a, b, c) {
+                // TODO
+                console.log('TODO', a, b, c);
+              }
+            );
+          } else {
+            // TODO
+            console.log('TODO Length != 1');
+          }
         }
-      }
+        var failFn = function (err) {
+            // TODO
+            console.log('TODO error & stuff', err);
+        }
+        recurseapi.getBatches(doneFn, failFn);
+      };
+      var failureFn = function (err) {
+        // TODO
+        console.log('TODO err!', err);
+      };
+      recurseapi.getContacts(batchId, successFn, failureFn);
     }.bind(this));
   }
 
@@ -126,45 +140,31 @@ router.get('/save', /*isLoggedIn,*/ function (req, res, next) {
 
 // Request a batches' contacts
 router.get('/:bid', isLoggedIn, function (req, res, next) {
+  // Get the batch ID provided
   var bid = req.params.bid;
-  // TODO Request the list of people to an endpoint;
-  // For now, just mock it.
 
-  // var successFn = function (contacts) {
-  //   contacts = JSON.parse(batches);
-
-  //   console.log(contacts);
-  // };
-
-  // var failureFn = function (err) {
-  //   console.log('ERROR:', err)
-  // };
-
-
-
-
+  // Setup callbacks
   var successFn = function (people) {
-    // TODO
-    // 1. Create the group
-    googleapi.createGroup(
-      'testGroup',
-      googleapi.saveContacts.bind(this, people),
-      function (err, msg) {
-        console.log('saveContacts error:', err, msg);
-      }
-    );
-    // 2. Put everyone on the newly created group
-    //googleapi.createGroup('testGroup');
+    // googleapi.createGroup(
+    //   'testGroup',
+    //   googleapi.saveContacts.bind(this, people),
+    //   function (err, msg) {
+    //     console.log('saveContacts error:', err, msg);
+    //   }
+    // );
 
-    res.render('people', {
-      people: people
-    }, function (err, html) {
-      res.send(html);
-    });
+    // res.render('people', {
+    //   people: people
+    // }, function (err, html) {
+    //   res.send(html);
+    // });
+
+    // Sends a JSON of the batch's people
+    res.status(200).send(people);
   };
 
   var failureFn = function (a, b, c) {
-    console.log('ERROR:', a, b, c)
+    console.log('ERROR:', a, b, c);
   };
 
   recurseapi.getContacts(bid, successFn, failureFn);
@@ -279,6 +279,10 @@ var recurseapi = (function () {
     baseUrl: base
   });
 
+  function findBatch(batchId) {
+    return _cache.people[batchId.toString()];
+  }
+
   /**
    * Get all batches.
    * @param  {Function} Callback to handle the response.
@@ -310,10 +314,12 @@ var recurseapi = (function () {
       //   ...
       // ]
       if (!error && response.statusCode == 200) {
+        console.log('BODY:', body);
+
         // Cache the result first
         _cache.batches = JSON.parse(body);
 
-        successFn(body);
+        successFn(_cache.batches);
       } else {
         failureFn(error);
       }
@@ -328,6 +334,8 @@ var recurseapi = (function () {
    */
   function getContacts(batchId, successFn, failureFn) {
     if (!this.token || parseInt(batchId, 10) === NaN) {
+      // TODO
+      // Better error msg?
       return;
     }
 
@@ -335,7 +343,8 @@ var recurseapi = (function () {
     batchId = batchId.toString();
     var cached = _cache.people;
     if (cached[batchId]) {
-      return cached[batchId];
+      successFn(null, cached[batchId]);
+      return;
     }
 
     var url = people.replace(/:batch_id/g, batchId);
@@ -348,9 +357,7 @@ var recurseapi = (function () {
         body = JSON.parse(body);
         cached[batchId] = body;
 
-        console.log('_cache:', _cache);
-
-        successFn(body);
+        successFn(null, body);
       } else {
         failureFn(error);
       }
@@ -373,6 +380,7 @@ var recurseapi = (function () {
 
   return {
     'setToken': setToken,
+    'findBatch': findBatch,
     'getBatches': getBatches,
     'getContacts': getContacts
   };
@@ -435,16 +443,12 @@ var googleapi = (function () {
       + '<feed xmlns="http://www.w3.org/2005/Atom"'
       + '      xmlns:gContact="http://schemas.google.com/contact/2008"'
       + '      xmlns:gd="http://schemas.google.com/g/2005"'
-      + '      xmlns:batch="http://schemas.google.com/gdata/batch">'
-      //+ '    <category scheme="http://schemas.google.com/g/2005#kind" '
-      //+ '              term="http://schemas.google.com/g/2008#contact" />';
+      + '      xmlns:batch="http://schemas.google.com/gdata/batch">';
     var tail = '</feed>';
 
     return head + people.slice(0, 3).map(function (person, index) {
       return '<entry>'
         + '  <batch:id>' + group + '</batch:id>'
-        //+ '  <batch:id>create</batch:id>'
-        //+ '  <title type="text">RC ~ testGroup</title>'
         + '  <batch:operation type="insert"/>'
         + '  <category scheme="http://schemas.google.com/g/2005#kind"'
         + '            term="http://schemas.google.com/g/2008#contact"/>'

@@ -31,20 +31,21 @@ block scripts
       if (checked.length) {
         // 1. Get the IDs
         // 2. Send them to an endpoint
-        var ids = checked.map(function (checkbox) {
-          return trgt.attr('data-id');
-        });
+        var ids = checked.map(function () {
+          return $(this).data('id');
+        }).toArray().join(',');
 
         var successFn = function (a, b, c) {
           console.log('save successFn:', a, b, c);
         };
-        var failureFn = function () {
+        var failureFn = function (a, b, c) {
           console.log('save failureFn:', a, b, c);
         };
 
+        console.log('IDS:', ids);
         $.ajax({
           type: 'GET',
-          url: '/contacts/save/?ids=' + ids.join(','),
+          url: '/contacts/save?ids=' + ids,
           timeout: 1000,
           success: successFn,
           error: failureFn
