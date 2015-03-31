@@ -385,7 +385,7 @@ var googleapi = (function () {
 
   //var base = 'https://www.google.com/m8/feeds/contacts/default/full/batch';
   var base = 'https://www.google.com/m8/feeds/contacts/default/full';
-  var token = null;
+  var _token = null;
 
   // Get base object (can be extended after, using it as constructor)
   var apireq = request.defaults({
@@ -393,15 +393,11 @@ var googleapi = (function () {
   });
 
   function retrieveContacts(successFn, failureFn) {
-    if (!this.token) {
+    if (!_token) {
       return;
     }
 
     var url = base;
-
-    console.log('URL:  ', url);
-    console.log('TOKEN:', this.token);
-    //return
 
     // TODO
     // Will 200 restrict me on a few answers...?
@@ -439,24 +435,26 @@ var googleapi = (function () {
       + '<feed xmlns="http://www.w3.org/2005/Atom"'
       + '      xmlns:gContact="http://schemas.google.com/contact/2008"'
       + '      xmlns:gd="http://schemas.google.com/g/2005"'
-      + '      xmlns:batch="http://schemas.google.com/gdata/batch">';
+      + '      xmlns:batch="http://schemas.google.com/gdata/batch">'
+      //+ '    <category scheme="http://schemas.google.com/g/2005#kind" '
+      //+ '              term="http://schemas.google.com/g/2008#contact" />';
     var tail = '</feed>';
 
-    return head + people.map(function (person) {
-      console.log('PERSON:', person);
-
+    return head + people.slice(0, 3).map(function (person, index) {
       return '<entry>'
-        + '  <batch:id>create</batch:id>'
+        + '  <batch:id>' + group + '</batch:id>'
+        //+ '  <batch:id>create</batch:id>'
+        //+ '  <title type="text">RC ~ testGroup</title>'
         + '  <batch:operation type="insert"/>'
         + '  <category scheme="http://schemas.google.com/g/2005#kind"'
-        + '    term="http://schemas.google.com/g/2008#contact"/>'
-        + _personCard(person)
+        + '            term="http://schemas.google.com/g/2008#contact"/>'
+        + _personCard(person, group)
         + '</entry>';
     }).join('') + tail;
   }
 
   function createGroup(name, successFn, failureFn) {
-    if (!this.token || !name) {
+    if (!_token || !name) {
       return;
     }
 
@@ -503,17 +501,12 @@ var googleapi = (function () {
         github:  contact.github
       };
     });
-    var url = 'https://www.google.com/m8/feeds/groups/default/full/batch';
+    var url = 'https://www.google.com/m8/feeds/contacts/default/full/batch';
     var entry = _batchAdd(contacts, groupId);
 
-    apireq.defaults({
-      qs: {
-        alt: null
-      }
-    }).post({
+    setFormat(null).post({
       url: url,
       body: entry,
-      alt: 'xml',
       headers: {
         'content-type': 'application/atom+xml'
       }
@@ -536,15 +529,27 @@ var googleapi = (function () {
     });
   }
 
+  function setFormat(format) {
+    apireq = apireq.defaults({
+      qs: {
+        access_token: _token,
+        v: '3.0',
+        alt: format
+      }
+    });
+
+    return apireq;
+  }
+
   function setToken(accessToken) {
     if (accessToken && typeof accessToken === 'string') {
-      this.token = accessToken;
+      _token = accessToken;
 
       // Get a new request object, using the previous one as constructor
       // (in order to keep the previous options).
       apireq = apireq.defaults({
         qs: {
-          access_token: this.token,
+          access_token: _token,
           v: '3.0',
           alt: 'json'
         }
