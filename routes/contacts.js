@@ -39,7 +39,7 @@ router.get('/', isLoggedIn, function (req, res, next) {
       batches = JSON.parse(batches);
     }
 
-    console.log('Batches:', batches);
+    //console.log('Batches:', batches);
 
     res.render('contacts', {
       batches: batches
@@ -47,7 +47,7 @@ router.get('/', isLoggedIn, function (req, res, next) {
   };
 
   var failureFn = function (a, b, c) {
-    console.log('ERROR:', a, b, c)
+    console.log('ERROR:', a, b, c);
   };
 
   recurseapi.getBatches(successFn, failureFn);
@@ -109,7 +109,7 @@ router.get('/save', /*isLoggedIn,*/ function (req, res, next) {
             googleapi.saveContacts.bind(this, people),
             function (a, b, c) {
               // TODO
-              console.log(a, b, c);
+              console.log('TODO', a, b, c);
             }
           );
         } else {
@@ -427,8 +427,8 @@ var googleapi = (function () {
       + info.phone
       + '  </gd:phoneNumber>' : '')
       + '  <atom:content type="text">'
-      + (info.twitter ? '    Twitter: <twitter.com>' : '')
-      + (info.github ? '    GitHub: <github.com>' : '')
+      + (info.twitter ? '    Twitter: https://twitter.com/' + info.twitter : '')
+      + (info.github ? '    GitHub: https://github.com/' + info.github : '')
       + '  </atom:content>'
       + (group ? '<gContact:groupMembershipInfo deleted="false"'
       + '  href="' + group + '"/>' : '');
@@ -443,6 +443,8 @@ var googleapi = (function () {
     var tail = '</feed>';
 
     return head + people.map(function (person) {
+      console.log('PERSON:', person);
+
       return '<entry>'
         + '  <batch:id>create</batch:id>'
         + '  <batch:operation type="insert"/>'
@@ -450,7 +452,7 @@ var googleapi = (function () {
         + '    term="http://schemas.google.com/g/2008#contact"/>'
         + _personCard(person)
         + '</entry>';
-    }) + tail;
+    }).join('') + tail;
   }
 
   function createGroup(name, successFn, failureFn) {
@@ -493,45 +495,45 @@ var googleapi = (function () {
 
   function saveContacts(people, groupId) {
     var contacts = people.map(function (contact) {
-      return _personCard({
+      return {
         name:    contact.first_name + ' ' + contact.last_name,
         email:   contact.email,
         phone:   contact.phone_number,
         twitter: contact.twitter,
         github:  contact.github
-      }, groupId);
+      };
     });
     var url = 'https://www.google.com/m8/feeds/groups/default/full/batch';
+    var entry = _batchAdd(contacts, groupId);
 
-    console.log('CONTACTS FOR GOOGLE:\n', _batchAdd(contacts.slice(0, 3), groupId));
+    apireq.defaults({
+      qs: {
+        alt: null
+      }
+    }).post({
+      url: url,
+      body: entry,
+      alt: 'xml',
+      headers: {
+        'content-type': 'application/atom+xml'
+      }
+    }, function (err, res, msg) {
+      if (err || res.statusCode !== 201) {
+        console.log('FAILURE:', msg);
 
-    // apireq.post({
-    //   url: url,
-    //   body: entry,
-    //   headers: {
-    //     'content-type': 'application/atom+xml'
-    //   }
-    // }, function (err, res, msg) {
-    //   if (err || res.statusCode !== 201) {
-    //     failureFn(err, res);
-    //     return;
-    //   }
+        // TODO
+        //failureFn(err, res);
+        return;
+      }
 
-    //   // String -> JSON
-    //   msg = JSON.parse(msg);
+      // String -> JSON
+      //msg = JSON.parse(msg);
 
-    //   // Send the group ID (basically, an URL) to the callback
-    //   var id = msg.entry.id.$t;
-    //   successFn(id);
-    // });
+      // TODO
+      //successFn(id);
 
-    // <entry gd:etag='contactEtag'>
-    //   <id>http://www.google.com/m8/feeds/contacts/userEmail/base/contactId</id>
-    //   ...
-    //   <gContact:groupMembershipInfo deleted='false'
-    //     href='http://www.google.com/m8/feeds/groups/userEmail/base/groupId'/>
-    //   ...
-    // </entry>
+      console.log('SUCCESS:', err, res);
+    });
   }
 
   function setToken(accessToken) {
