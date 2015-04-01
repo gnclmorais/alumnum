@@ -1,11 +1,31 @@
 body {
-  padding: 50px;
+  padding: 0;
   font: 14px "Lucida Grande", Helvetica, Arial, sans-serif;
 }
 
 a {
   color: #00B7FF;
 }
+
+
+/**
+ * ____    ____                        ___
+ * `MM'    `MM'                        `MM
+ *  MM      MM                          MM
+ *  MM      MM   ____      ___      ____MM   ____   ___  __
+ *  MM      MM  6MMMMb   6MMMMb    6MMMMMM  6MMMMb  `MM 6MM
+ *  MMMMMMMMMM 6M'  `Mb 8M'  `Mb  6M'  `MM 6M'  `Mb  MM69 "
+ *  MM      MM MM    MM     ,oMM  MM    MM MM    MM  MM'
+ *  MM      MM MMMMMMMM ,6MM9'MM  MM    MM MMMMMMMM  MM
+ *  MM      MM MM       MM'   MM  MM    MM MM        MM
+ *  MM      MM YM    d9 MM.  ,MM  YM.  ,MM YM    d9  MM
+ * _MM_    _MM_ YMMMM9  `YMMM9'Yb. YMMMMMM_ YMMMM9  _MM_
+ */
+
+header {
+  width: 100%;
+}
+
 
 /**
  * Batch lists

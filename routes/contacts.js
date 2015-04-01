@@ -39,14 +39,13 @@ router.get('/', isLoggedIn, function (req, res, next) {
       batches = JSON.parse(batches);
     }
 
-    //console.log('Batches:', batches);
-
     res.render('contacts', {
       batches: batches
     });
   };
 
   var failureFn = function (a, b, c) {
+    // TODO
     console.log('ERROR:', a, b, c);
   };
 
@@ -54,7 +53,7 @@ router.get('/', isLoggedIn, function (req, res, next) {
 });
 
 router.get('/auth', function (req, res, next) {
-  // Send them to Hacker School authentication,
+  // Send them to Recurse Center authentication,
   // which in turn will request Google authentication.
   res.redirect(req.baseUrl + '/hackerschool');
 });
@@ -101,12 +100,14 @@ router.get('/save', /*isLoggedIn,*/ function (req, res, next) {
               return batch.id.toString() === batchId;
             });
 
+            // You should have a single match for the batch ID
             if (batch.length === 1) {
               batch = batch[0];
               // 2. If/when we have them, create a group for each batch:
               googleapi.createGroup(
                 batch.name,
-                // 3. After the groups are created, batch-insert the people on them:
+                // 3. After the groups are created,
+                // batch-insert the people on them:
                 googleapi.saveContacts.bind(this, people),
                 function (a, b, c) {
                   // TODO
@@ -124,15 +125,18 @@ router.get('/save', /*isLoggedIn,*/ function (req, res, next) {
           }
           recurseapi.getBatches(doneFn, failFn);
         };
+
         var failureFn = function (err) {
           // TODO
           console.log('TODO err!', err);
         };
+
         recurseapi.getContacts(batchId, successFn, failureFn);
       }.bind(this);
     }()));
   }
 
+  // TODO
   res.render('index', {
     title: ids.join(',')
   });
@@ -143,26 +147,12 @@ router.get('/:bid', isLoggedIn, function (req, res, next) {
   // Get the batch ID provided
   var bid = req.params.bid;
 
-  // Setup callbacks
+  // Sends a JSON of the batch's people
   var successFn = function (people) {
-    // googleapi.createGroup(
-    //   'testGroup',
-    //   googleapi.saveContacts.bind(this, people),
-    //   function (err, msg) {
-    //     console.log('saveContacts error:', err, msg);
-    //   }
-    // );
-
-    // res.render('people', {
-    //   people: people
-    // }, function (err, html) {
-    //   res.send(html);
-    // });
-
-    // Sends a JSON of the batch's people
     res.status(200).send(people);
   };
 
+  // TODO
   var failureFn = function (a, b, c) {
     console.log('ERROR:', a, b, c);
   };
