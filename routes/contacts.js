@@ -1,7 +1,7 @@
 var express = require('express');
 var router = express.Router();
 var request = require('request');
-require('request').debug = true;  // Turn debug on
+//require('request').debug = true;  // Turn debug on
 // Authentication
 var passport = require('passport');
 var OAuth2Strategy = require('passport-oauth').OAuth2Strategy;
@@ -90,47 +90,47 @@ router.get('/save', /*isLoggedIn,*/ function (req, res, next) {
     // TODO
     // 1. For each ID, check if we have the students:
     //    a) If not, request them, then proceed when received
-    ids.forEach(function (batchId) {
-      batchId = batchId.toString();
+    ids.forEach((function () {
+      return function (batchId) {
+        batchId = batchId.toString();
 
 
-      var successFn = function (err, people) {
-        var doneFn = function (batches) {
-          console.log('TYPE:', batches.constructor);
+        var successFn = function (err, people) {
+          var doneFn = function (batches) {
+            var batch = batches.filter(function (batch) {
+              return batch.id.toString() === batchId;
+            });
 
-          var batch = batches.filter(function (batch) {
-            return batch.id.toString() === batchId;
-          });
-
-          if (batch.length === 1) {
-            batch = batch[0];
-            // 2. If/when we have them, create a group for each batch:
-            googleapi.createGroup(
-              batch.name,
-              // 3. After the groups are created, batch-insert the people on them:
-              googleapi.saveContacts.bind(this, people),
-              function (a, b, c) {
-                // TODO
-                console.log('TODO', a, b, c);
-              }
-            );
-          } else {
-            // TODO
-            console.log('TODO Length != 1');
+            if (batch.length === 1) {
+              batch = batch[0];
+              // 2. If/when we have them, create a group for each batch:
+              googleapi.createGroup(
+                batch.name,
+                // 3. After the groups are created, batch-insert the people on them:
+                googleapi.saveContacts.bind(this, people),
+                function (a, b, c) {
+                  // TODO
+                  //console.log('TODO', a, b, c);
+                }
+              );
+            } else {
+              // TODO
+              console.log('TODO Length != 1');
+            }
           }
-        }
-        var failFn = function (err) {
-            // TODO
-            console.log('TODO error & stuff', err);
-        }
-        recurseapi.getBatches(doneFn, failFn);
-      };
-      var failureFn = function (err) {
-        // TODO
-        console.log('TODO err!', err);
-      };
-      recurseapi.getContacts(batchId, successFn, failureFn);
-    }.bind(this));
+          var failFn = function (err) {
+              // TODO
+              console.log('TODO error & stuff', err);
+          }
+          recurseapi.getBatches(doneFn, failFn);
+        };
+        var failureFn = function (err) {
+          // TODO
+          console.log('TODO err!', err);
+        };
+        recurseapi.getContacts(batchId, successFn, failureFn);
+      }.bind(this);
+    }()));
   }
 
   res.render('index', {
@@ -296,6 +296,7 @@ var recurseapi = (function () {
     // Return cached result
     if (_cache.batches) {
       successFn(_cache.batches);
+      return;
     }
 
     var url = batches;
@@ -314,8 +315,6 @@ var recurseapi = (function () {
       //   ...
       // ]
       if (!error && response.statusCode == 200) {
-        console.log('BODY:', body);
-
         // Cache the result first
         _cache.batches = JSON.parse(body);
 
@@ -446,7 +445,7 @@ var googleapi = (function () {
       + '      xmlns:batch="http://schemas.google.com/gdata/batch">';
     var tail = '</feed>';
 
-    return head + people.slice(0, 3).map(function (person, index) {
+    return head + people.map(function (person, index) {
       return '<entry>'
         + '  <batch:id>' + group + '</batch:id>'
         + '  <batch:operation type="insert"/>'
@@ -515,8 +514,8 @@ var googleapi = (function () {
         'content-type': 'application/atom+xml'
       }
     }, function (err, res, msg) {
-      if (err || res.statusCode !== 201) {
-        console.log('FAILURE:', msg);
+      if (err || (res.statusCode !== 200 && res.statusCode !== 201)) {
+        console.log('FAILURE:', err, res.statusCode);
 
         // TODO
         //failureFn(err, res);
@@ -529,7 +528,7 @@ var googleapi = (function () {
       // TODO
       //successFn(id);
 
-      console.log('SUCCESS:', err, res);
+      console.log('SUCCESS:');
     });
   }
 
