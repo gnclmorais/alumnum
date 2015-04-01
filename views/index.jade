@@ -1,8 +1,11 @@
 extends layout
 
+block action
+  a(href='contacts'
+    class="button-main button-primary") Login
+
 block content
-  h1 Alumnum
-  p You Hacker School phonebook management tool.
+  h2 Get everyone's contacts
 
   .instructions
     ol
@@ -10,6 +13,3 @@ block content
       li Give the app permissions to edit your Google Contacts
       li Select the contacts you want to add/remove
       li Hit &lsquo;Save&rsquo; and you&rsquo;ll have everything synced!
-
-  .login
-    a(href='contacts') Login

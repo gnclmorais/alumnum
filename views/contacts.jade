@@ -1,5 +1,8 @@
 extends layout
 
+block action
+  button.save-contacts.button-main.button-primary Save
+
 block content
   h2= 'Contacts'
 
@@ -12,9 +15,16 @@ block content
              data-date-start='#{batch.start_date}'
              data-date-end='#{batch.end_date}')
             h3= batch.name
-            input(type='checkbox'
-                  name='people-batch-#{batch.id}'
-                  data-id='#{batch.id}')
+            <!--input(type='checkbox')-->
+            .checkbox-wrapper.squared-one
+              input(type="checkbox"
+                    value="None"
+                    id="people-batch-#{batch.id}"
+                    name='people-batch-#{batch.id}'
+                    data-id='#{batch.id}')
+              label(for="people-batch-#{batch.id}")
+
+
             .people
 
 block scripts
