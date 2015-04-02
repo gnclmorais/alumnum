@@ -35,16 +35,14 @@ var google = keyfile.google;
  * /:id   - Requests the students of the batch with this id.
  */
 router.get('/', isLoggedIn, function (req, res, next) {
-  var msg = req.session.msg; // Get a possible message
+  // Get a possible message to display
+  var msg = req.session.msg;
   if (msg) {
-    req.session.msg = null; // Resets it, if found
+    // Resets it, if found:
+    req.session.msg = null;
   }
 
   var successFn = function (batches) {
-    if (typeof batches === 'string') {
-      batches = JSON.parse(batches);
-    }
-
     res.render('contacts', {
       batches: batches,
       alert: msg
@@ -99,8 +97,8 @@ router.get('/save', /*isLoggedIn,*/ function (req, res, next) {
     // No error? Redirect to /contacts and show success message
     showContactsResult(req, res, {
       type: 'success',
-      // TODO Link to the user's GContacts?
-      msg: 'Contacts successfuly added to your Google Account!'
+      msg: 'Contacts successfuly added to your'
+        + ' <a href="https://contacts.google.com">Google Contacts</a>!'
     });
   };
 
@@ -422,18 +420,12 @@ var recurseapi = (function () {
 }());
 
 var googleapi = (function () {
-  // HTTP header:  GData-Version: 3.0
-  // Query param:  v=3.0
-  // JSON Request: alt=json
-
   //var base = 'https://www.google.com/m8/feeds/contacts/default/full/batch';
   var base = 'https://www.google.com/m8/feeds/contacts/default/full';
   var _token = null;
 
   // Get base object (can be extended after, using it as constructor)
-  var apireq = request.defaults({
-    //baseUrl: base
-  });
+  var apireq = request.defaults({});
 
   function retrieveContacts(successFn, failureFn) {
     if (!_token) {
@@ -522,11 +514,19 @@ var googleapi = (function () {
       }
 
       // String -> JSON
-      msg = JSON.parse(msg);
-
-      // Send the group ID (basically, an URL) to the callback
-      var id = msg.entry.id.$t;
-      successFn(id);
+      // However, make _sure_ it's not XML
+      if (msg.charAt(0) !== '<') {
+        msg = JSON.parse(msg);
+        // Send the group ID (basically, an URL) to the callback
+        successFn(msg.entry.id.$t);
+      } else {
+        failureFn(err, {
+          type: 'danger',
+          msg: 'Something wrong happened. Are you sure you don\'t have this'
+          + ' contact group already? Check your'
+          + ' <a href="https://contacts.google.com">Google Contacts</a>,'
+        })
+      }
     });
   }
 

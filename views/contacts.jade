@@ -5,7 +5,8 @@ block action
 
 block alerts
   if alert
-    div(class="alert alert-#{alert.type} alert-dismissible fade in")= alert.msg
+    div(class="alert alert-#{alert.type} alert-dismissible fade in")
+      != alert.msg
       button(type="button"
              class="close"
              data-dismiss="alert"
@@ -49,59 +50,44 @@ block scripts
           return $(this).data('id');
         }).toArray().join(',');
 
-        var successFn = function (a, b, c) {
-          console.log('save successFn:', a, b, c);
-        };
-        var failureFn = function (a, b, c) {
-          console.log('save failureFn:', a, b, c);
-        };
-
-        console.log('IDS:', ids);
-        //window.location.pathname = '/contacts/save?ids=' + ids;
         window.location.href = '/contacts/save?ids=' + ids;
-        //window.location.href = window.location.host + '/contacts/save?ids=' + ids;
-        //- $.ajax({
-        //-   type: 'GET',
-        //-   url: '/contacts/save?ids=' + ids,
-        //-   timeout: 1000,
-        //-   success: successFn,
-        //-   error: failureFn
-        //- });
       }
     });
 
+    /*
     // Batch loading
-    //- document.getElementById('batches').addEventListener('click', function (e) {
-    //-   var trgt = $(e.target);
+    document.getElementById('batches').addEventListener('click', function (e) {
+      var trgt = $(e.target);
 
-    //-   // If is an input, check what kind of input
-    //-   if (trgt.is('input')) {
-    //-     // If is a batch input, toogle of the inputs of its people
-    //-     if (trgt.attr('name').indexOf('people-batch') > -1) {
-    //-       var checkedStatus = trgt.attr('checked');
-    //-       $(trgt).parents('.batch').find('.person').forEach(function (item) {
-    //-         $(item).find('input').attr('checked', checkedStatus || null);
-    //-       });
-    //-     }
-    //-     return;
-    //-   }
+      // If is an input, check what kind of input
+      if (trgt.is('input')) {
+        // If is a batch input, toogle of the inputs of its people
+        if (trgt.attr('name').indexOf('people-batch') > -1) {
+          var checkedStatus = trgt.attr('checked');
+          $(trgt).parents('.batch').find('.person').forEach(function (item) {
+            $(item).find('input').attr('checked', checkedStatus || null);
+          });
+        }
+        return;
+      }
 
-    //-   var target = $(e.target).parents('li');
-    //-   var people = target.find('.people');
+      var target = $(e.target).parents('li');
+      var people = target.find('.people');
 
-    //-   if (people.find('.person').length > 0) {
-    //-     people.toggle();
-    //-   } else {
-    //-     target.addClass('loading');
+      if (people.find('.person').length > 0) {
+        people.toggle();
+      } else {
+        target.addClass('loading');
 
-    //-     var batchId = target.data('id');
-    //-     requestBatch(
-    //-       batchId,
-    //-       loadBatch.bind(window, $('[data-id="' + batchId + '"] .people')),
-    //-       showError
-    //-     );
-    //-   }
-    //- });
+        var batchId = target.data('id');
+        requestBatch(
+          batchId,
+          loadBatch.bind(window, $('[data-id="' + batchId + '"] .people')),
+          showError
+        );
+      }
+    });
+    */
 
     // Toggle checbox just by clicking the batch's title,
     // and enable/disable the Save button, according to inputs.
@@ -111,7 +97,6 @@ block scripts
 
       var areNoBatchesChecked = !$('.batch').find('input:checked').length;
       $('.save-contacts').prop('disabled', areNoBatchesChecked);
-      //console.log('Checked:', );
     });
 
     /**

@@ -129,6 +129,11 @@ input[type=checkbox] {
     opacity: 1;
 }
 
+/** Override Bootstrap's .close */
+.close {
+  font-size: 20px;
+}
+
 /** Buttons */
 .button-main {
   border: none;
