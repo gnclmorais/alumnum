@@ -134,18 +134,30 @@ input[type=checkbox] {
   border: none;
   outline: none;
   padding: 15px 30px;
+  border: 3px solid transparent;
   letter-spacing: 1px;
   text-transform: uppercase;
   text-decoration: none !important;
 }
 
+.button-main:disabled {
+  opacity: .75;
+}
+
+.button-main:enabled:hover {
+  color: #eee;
+  opacity: 1;
+  border: 3px solid #eee;
+}
+
+.button-main:enabled:active {
+  opacity: .75;
+  border: 3px solid #eee;
+}
+
   .button-primary {
     color: #eee;
     background-color: #61ae24;
-  }
-
-  .button-primary:hover {
-    opacity: .75;
   }
 
 /**
@@ -219,9 +231,14 @@ header {
     list-style-type: none;
   }
 
-  /** gHome instructions */
+  /** Home instructions */
   .instructions li {
     line-height: 2;
+  }
+
+  /** Alerts */
+  .alert {
+    margin-top: 30px;
   }
 
   /** Batches wrapper */

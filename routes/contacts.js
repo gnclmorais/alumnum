@@ -1,7 +1,8 @@
+var request = require('request');
+//request.debug = true;
+var async = require('async');
 var express = require('express');
 var router = express.Router();
-var request = require('request');
-//require('request').debug = true;  // Turn debug on
 // Authentication
 var passport = require('passport');
 var OAuth2Strategy = require('passport-oauth').OAuth2Strategy;
@@ -9,7 +10,7 @@ var GoogleStrategy = require('passport-google-oauth').OAuth2Strategy;
 var keyfile = require('../config/api_keys');
 
 // HTTP & API requests
-var hackerschool = keyfile.hackerschool;
+var recurse = keyfile.recurse;
 var google = keyfile.google;
 
 
@@ -34,33 +35,34 @@ var google = keyfile.google;
  * /:id   - Requests the students of the batch with this id.
  */
 router.get('/', isLoggedIn, function (req, res, next) {
+  var msg = req.session.msg; // Get a possible message
+  if (msg) {
+    req.session.msg = null; // Resets it, if found
+  }
+
   var successFn = function (batches) {
     if (typeof batches === 'string') {
       batches = JSON.parse(batches);
     }
 
     res.render('contacts', {
-      batches: batches
+      batches: batches,
+      alert: msg
     });
   };
 
-  var failureFn = function (a, b, c) {
-    // TODO
-    console.log('ERROR:', a, b, c);
-  };
-
-  recurseapi.getBatches(successFn, failureFn);
+  recurseapi.getBatches(successFn);
 });
 
 router.get('/auth', function (req, res, next) {
   // Send them to Recurse Center authentication,
   // which in turn will request Google authentication.
-  res.redirect(req.baseUrl + '/hackerschool');
+  res.redirect(req.baseUrl + '/recurse');
 });
 
-// Hacker School authentication
-router.get('/hackerschool', passport.authenticate('hackerschool'));
-router.get('/hackerschool/callback', passport.authenticate('hackerschool', {
+// Recurse Center authentication
+router.get('/recurse', passport.authenticate('recurse'));
+router.get('/recurse/callback', passport.authenticate('recurse', {
   successRedirect: '/contacts/google',
   failureRedirect: '/contacts/error'
 }));
@@ -78,23 +80,42 @@ router.get('/google/callback', passport.authenticate('google', {
 router.get('/save', /*isLoggedIn,*/ function (req, res, next) {
   var ids = req.query.ids;
 
-  // Raise error if no IDs provided
+  // Raise error if no IDs provided and stop there.
   if (!ids) {
-    // TODO
+    showContactsResult(req, res, {
+      type: 'danger',
+      msg: 'No batch ID provided. Try again!'
+    });
+    return;
   }
+
+  // Callback for all the requests
+  var callbackFinal = function (err) {
+    if (err) {
+      // TODO
+      return;
+    }
+
+    // No error? Redirect to /contacts and show success message
+    showContactsResult(req, res, {
+      type: 'success',
+      // TODO Link to the user's GContacts?
+      msg: 'Contacts successfuly added to your Google Account!'
+    });
+  };
 
   // Get the batches' IDs into an array
   ids = req.query.ids.split(',');
   if (ids.length) {
+    // For each bach, make a request and react at the end of them
     // TODO
-    // 1. For each ID, check if we have the students:
-    //    a) If not, request them, then proceed when received
-    ids.forEach((function () {
-      return function (batchId) {
+    // I need to clal the callback to async finishes
+    var that = this;
+    async.parallel(ids.map(function (id) {
+      return function (batchId, callback) {
         batchId = batchId.toString();
 
-
-        var successFn = function (err, people) {
+        var callbackGotContacts = function (err, people) {
           var doneFn = function (batches) {
             var batch = batches.filter(function (batch) {
               return batch.id.toString() === batchId;
@@ -107,11 +128,14 @@ router.get('/save', /*isLoggedIn,*/ function (req, res, next) {
               googleapi.createGroup(
                 batch.name,
                 // 3. After the groups are created,
-                // batch-insert the people on them:
-                googleapi.saveContacts.bind(this, people),
+                //    batch-insert the people onto them:
+                //googleapi.saveContacts.bind(this, people),
+                function (groupId) {
+                  googleapi.saveContacts(people, groupId, callback);
+                },
                 function (a, b, c) {
                   // TODO
-                  //console.log('TODO', a, b, c);
+                  console.log('TODO err!', a, b, c);
                 }
               );
             } else {
@@ -126,20 +150,28 @@ router.get('/save', /*isLoggedIn,*/ function (req, res, next) {
           recurseapi.getBatches(doneFn, failFn);
         };
 
-        var failureFn = function (err) {
-          // TODO
-          console.log('TODO err!', err);
+        // TODO
+        var callbacDidntGetContacts = function (err) {
+          console.log('TODO err!!', err);
         };
 
-        recurseapi.getContacts(batchId, successFn, failureFn);
-      }.bind(this);
-    }()));
+        recurseapi.getContacts(
+          batchId,
+          callbackGotContacts,
+          callbacDidntGetContacts
+        );
+      }.bind(that, id);
+      // TODO Make previous bind() not needing `that`?
+    }), callbackFinal);
+  } else {
+    // TODO
   }
 
   // TODO
-  res.render('index', {
-    title: ids.join(',')
-  });
+  // I probably don't need this
+  // res.render('index', {
+  //   title: ids.join(',')
+  // });
 });
 
 // Request a batches' contacts
@@ -178,14 +210,14 @@ router.get('/:bid', isLoggedIn, function (req, res, next) {
  * and authentication providers.
  */
 
-// Hacker School
-var hackerschoolBase = 'https://www.recurse.com';
-passport.use('hackerschool', new OAuth2Strategy({
-    clientID:     hackerschool.clientId,
-    clientSecret: hackerschool.clientSecret,
-    callbackURL:  hackerschool.callbackUrl,
-    authorizationURL: hackerschoolBase + '/oauth/authorize',
-    tokenURL: hackerschoolBase + '/oauth/token'
+// Recurse Center
+var recurseBase = 'https://www.recurse.com';
+passport.use('recurse', new OAuth2Strategy({
+    clientID:     recurse.clientId,
+    clientSecret: recurse.clientSecret,
+    callbackURL:  recurse.callbackUrl,
+    authorizationURL: recurseBase + '/oauth/authorize',
+    tokenURL: recurseBase + '/oauth/token'
 }, function (accessToken, refreshToken, profile, done) {
   // TODO
   // Store accessToken
@@ -230,6 +262,17 @@ function isLoggedIn(req, res, next) {
   console.log('\nNOT LOGGED IN:', req.baseUrl + '/auth');
 
   res.redirect(req.baseUrl + '/auth');
+}
+
+/**
+ * Redirects to Contacts page with a message object (type & text message).
+ * @param  {[type]} msg [description]
+ * @return {[type]}     [description]
+ */
+function showContactsResult(req, res, msg) {
+  console.log('showContactsResult ->');
+  req.session.msg = msg;
+  res.redirect('/contacts');
 }
 
 
@@ -294,23 +337,25 @@ var recurseapi = (function () {
     // TODO
     // Will 200 restrict me on a few answers...?
     apireq.get(url, function (error, response, body) {
-      // If correct, `body` will be:
-      // [
-      //   {
-      //     id: 17,
-      //     name: 'Spring 1, 2015',
-      //     start_date: '2015-02-16',
-      //     end_date: '2015-05-07'
-      //   }
-      //   ...
-      // ]
       if (!error && response.statusCode == 200) {
         // Cache the result first
         _cache.batches = JSON.parse(body);
 
         successFn(_cache.batches);
       } else {
-        failureFn(error);
+        // Default error callback & message
+        // TODO
+        // This won't work. That's it.
+        console.log("This won't work. That's it.")
+        var backupFn = function () {
+          // TODO
+          showContactsResult({
+            type: 'danger',
+            msg: 'Error loading batches, try again later.'
+          });
+        };
+
+        (failureFn || backupFn)(error);
       }
     });
   }
@@ -341,6 +386,7 @@ var recurseapi = (function () {
     // TODO
     // Will 200 restrict me on a few answers...?
     apireq.get(url, function (error, response, body) {
+      console.log('stuff err', error, response.statusCode);
       if (!error && response.statusCode == 200) {
         // Cache the result using the batch ID
         body = JSON.parse(body);
@@ -454,7 +500,7 @@ var googleapi = (function () {
     name = 'RC ~ ' + name;
     var url = 'https://www.google.com/m8/feeds/groups/default/full';
     var entry = '<entry xmlns:gd="http://schemas.google.com/g/2005">'
-      + '<category scheme="http://schemas.google.com/g/2005#kind"'
+      + '  <category scheme="http://schemas.google.com/g/2005#kind"'
       + '    term="http://schemas.google.com/contact/2008#group"/>'
       + '  <title type="text">' + name + '</title>'
       + '  <gd:extendedProperty name="description">'
@@ -484,7 +530,7 @@ var googleapi = (function () {
     });
   }
 
-  function saveContacts(people, groupId) {
+  function saveContacts(people, groupId, callback) {
     var contacts = people.map(function (contact) {
       return {
         name:    contact.first_name + ' ' + contact.last_name,
@@ -512,13 +558,14 @@ var googleapi = (function () {
         return;
       }
 
-      // String -> JSON
-      //msg = JSON.parse(msg);
+      // showContactsResult({
+      //   type: 'success',
+      //   msg: 'Contacts successfuly imported!\n' +
+      //     'Check them out at <a href="https://contacts.google.com">Google Contacts</a>'
+      // });
+      callback(null);
 
-      // TODO
-      //successFn(id);
-
-      console.log('SUCCESS:');
+      console.log('SUCCESS:', msg);
     });
   }
 

@@ -1,7 +1,16 @@
 extends layout
 
 block action
-  button.save-contacts.button-main.button-primary Save
+  button.save-contacts.button-main.button-primary(disabled) Save
+
+block alerts
+  if alert
+    div(class="alert alert-#{alert.type} alert-dismissible fade in")= alert.msg
+      button(type="button"
+             class="close"
+             data-dismiss="alert"
+             aria-label="Close")
+        span(aria-hidden="true") &times;
 
 block content
   h2= 'Contacts'
@@ -29,7 +38,7 @@ block content
 
 block scripts
   script.
-    // Top Save button
+    // Save button @ header
     $('.save-contacts').on('click', function () {
       var checked = $('input[name^="people-batch-"]:checked');
 
@@ -48,47 +57,61 @@ block scripts
         };
 
         console.log('IDS:', ids);
-        $.ajax({
-          type: 'GET',
-          url: '/contacts/save?ids=' + ids,
-          timeout: 1000,
-          success: successFn,
-          error: failureFn
-        });
+        //window.location.pathname = '/contacts/save?ids=' + ids;
+        window.location.href = '/contacts/save?ids=' + ids;
+        //window.location.href = window.location.host + '/contacts/save?ids=' + ids;
+        //- $.ajax({
+        //-   type: 'GET',
+        //-   url: '/contacts/save?ids=' + ids,
+        //-   timeout: 1000,
+        //-   success: successFn,
+        //-   error: failureFn
+        //- });
       }
     });
 
     // Batch loading
-    document.getElementById('batches').addEventListener('click', function (e) {
-      var trgt = $(e.target);
+    //- document.getElementById('batches').addEventListener('click', function (e) {
+    //-   var trgt = $(e.target);
 
-      // If is an input, check what kind of input
-      if (trgt.is('input')) {
-        // If is a batch input, toogle of the inputs of its people
-        if (trgt.attr('name').indexOf('people-batch') > -1) {
-          var checkedStatus = trgt.attr('checked');
-          $(trgt).parents('.batch').find('.person').forEach(function (item) {
-            $(item).find('input').attr('checked', checkedStatus || null);
-          });
-        }
-        return;
-      }
+    //-   // If is an input, check what kind of input
+    //-   if (trgt.is('input')) {
+    //-     // If is a batch input, toogle of the inputs of its people
+    //-     if (trgt.attr('name').indexOf('people-batch') > -1) {
+    //-       var checkedStatus = trgt.attr('checked');
+    //-       $(trgt).parents('.batch').find('.person').forEach(function (item) {
+    //-         $(item).find('input').attr('checked', checkedStatus || null);
+    //-       });
+    //-     }
+    //-     return;
+    //-   }
 
-      var target = $(e.target).parents('li');
-      var people = target.find('.people');
+    //-   var target = $(e.target).parents('li');
+    //-   var people = target.find('.people');
 
-      if (people.find('.person').length > 0) {
-        people.toggle();
-      } else {
-        target.addClass('loading');
+    //-   if (people.find('.person').length > 0) {
+    //-     people.toggle();
+    //-   } else {
+    //-     target.addClass('loading');
 
-        var batchId = target.data('id');
-        requestBatch(
-          batchId,
-          loadBatch.bind(window, $('[data-id="' + batchId + '"] .people')),
-          showError
-        );
-      }
+    //-     var batchId = target.data('id');
+    //-     requestBatch(
+    //-       batchId,
+    //-       loadBatch.bind(window, $('[data-id="' + batchId + '"] .people')),
+    //-       showError
+    //-     );
+    //-   }
+    //- });
+
+    // Toggle checbox just by clicking the batch's title,
+    // and enable/disable the Save button, according to inputs.
+    $('.batch').on('click', function () {
+      var checkBox = $(this).find('input');
+      checkBox.prop('checked', !checkBox.prop('checked'));
+
+      var areNoBatchesChecked = !$('.batch').find('input:checked').length;
+      $('.save-contacts').prop('disabled', areNoBatchesChecked);
+      //console.log('Checked:', );
     });
 
     /**
@@ -110,10 +133,9 @@ block scripts
      * Displays the people in a batch.
      */
     function loadBatch(container, batch) {
-      console.log('Container:', container);
       $(container).html(batch);
     };
 
     function showError(err) {
-
+      // TODO
     };
