@@ -1,5 +1,5 @@
 var request = require('request');
-//request.debug = true;
+request.debug = true;
 var async = require('async');
 var express = require('express');
 var router = express.Router();
@@ -7,9 +7,8 @@ var router = express.Router();
 var passport = require('passport');
 var OAuth2Strategy = require('passport-oauth').OAuth2Strategy;
 var GoogleStrategy = require('passport-google-oauth').OAuth2Strategy;
+// API keys
 var keyfile = require('../config/api_keys');
-
-// HTTP & API requests
 var recurse = keyfile.recurse;
 var google = keyfile.google;
 
@@ -29,10 +28,16 @@ var google = keyfile.google;
  *
  * ROUTES
  * Routing starting from /contacts:
- * /      - Homepage, only accessible through authentication.
- *          If authenticated, it will request & show the list of batches.
- * /auth  - Authentication with a Recouse Center account.
- * /:id   - Requests the students of the batch with this id.
+ * /        - Homepage, only accessible through authentication.
+ *            If authenticated, it will request & show the list of batches.
+ * /auth    - Authentication with a Recouse Center account.
+ *            Basically, it redirects the process to /recurse to start auth.
+ * /recurse - OAuth into Recurse Center
+ * /google  - OAuth into Google (Contacts)
+ * /save    - Gets batches' IDs through query parameters (?ids=x,y,z),
+ *            requests their people and saves them to Google Contacts,
+ *            creating a group for each batch selected.
+ * /:bid    - Requests the students of the batch with this id.
  */
 router.get('/', isLoggedIn, function (req, res, next) {
   // Get a possible message to display
@@ -49,7 +54,15 @@ router.get('/', isLoggedIn, function (req, res, next) {
     });
   };
 
-  recurseapi.getBatches(successFn);
+  var failureFn = function () {
+    showContactsResult(req, res, {
+      type: 'danger',
+      msg: 'Couldn&rsquo;t load the batches, I&rsquo;m sorry.'
+        + ' Please try again later.'
+    });
+  };
+
+  recurseapi.getBatches(successFn, failureFn);
 });
 
 router.get('/auth', function (req, res, next) {
@@ -58,14 +71,12 @@ router.get('/auth', function (req, res, next) {
   res.redirect(req.baseUrl + '/recurse');
 });
 
-// Recurse Center authentication
 router.get('/recurse', passport.authenticate('recurse'));
 router.get('/recurse/callback', passport.authenticate('recurse', {
   successRedirect: '/contacts/google',
   failureRedirect: '/contacts/error'
 }));
 
-// Google authentication
 router.get('/google', passport.authenticate('google', {
   scope: google.scopes.join(' ')
 }));
@@ -74,8 +85,7 @@ router.get('/google/callback', passport.authenticate('google', {
   failureRedirect: '/error'
 }));
 
-// Get the batches' IDs and store the people's contacts
-router.get('/save', /*isLoggedIn,*/ function (req, res, next) {
+router.get('/save', isLoggedIn, function (req, res, next) {
   var ids = req.query.ids;
 
   // Raise error if no IDs provided and stop there.
@@ -87,6 +97,23 @@ router.get('/save', /*isLoggedIn,*/ function (req, res, next) {
     return;
   }
 
+  var fnFailureCreateGroup = function () {
+    showContactsResult(req, res, {
+      type: 'danger',
+      msg: 'Could not create the necessary group. Check your'
+        + ' <a href="https://contacts.google.com">Google Contacts</a>.'
+    });
+  };
+
+  var fnFailureSaveContacts = function () {
+    showContactsResult(req, res, {
+      type: 'danger',
+      msg: 'Could not create save your contacts. Check your'
+        + ' <a href="https://contacts.google.com">Google Contacts</a>,'
+        + ' make sure everything&lsquo;s ok and try again later.'
+    });
+  };
+
   // Callback for all the requests
   var callbackFinal = function (err) {
     if (err) {
@@ -94,7 +121,7 @@ router.get('/save', /*isLoggedIn,*/ function (req, res, next) {
         type: 'danger',
         msg: 'Something wrong happened. Please check your'
           + ' <a href="https://contacts.google.com">Google Contacts</a>'
-          + ' to make sure you don\'t already have the groups.'
+          + ' to make sure you don&rsquo;t already have the groups.'
       });
       return;
     }
@@ -111,14 +138,12 @@ router.get('/save', /*isLoggedIn,*/ function (req, res, next) {
   ids = req.query.ids.split(',');
   if (ids.length) {
     // For each bach, make a request and react at the end of them
-    // TODO
-    // I need to clal the callback to async finishes
     var that = this;
     async.parallel(ids.map(function (id) {
       return function (batchId, callback) {
         batchId = batchId.toString();
 
-        var callbackGotContacts = function (err, people) {
+        var fnGotContacts = function (err, people) {
           var doneFn = function (batches) {
             var batch = batches.filter(function (batch) {
               return batch.id.toString() === batchId;
@@ -132,52 +157,47 @@ router.get('/save', /*isLoggedIn,*/ function (req, res, next) {
                 batch.name,
                 // 3. After the groups are created,
                 //    batch-insert the people onto them:
-                //googleapi.saveContacts.bind(this, people),
                 function (groupId) {
-                  googleapi.saveContacts(people, groupId, callback);
+                  googleapi.saveContacts(
+                    people, groupId, callback, fnFailureSaveContacts
+                  );
                 },
-                function (a, b, c) {
-                  // TODO
-                  console.log('TODO err!', a, b, c);
-                }
+                fnFailureCreateGroup
               );
             } else {
               // TODO
               console.log('TODO Length != 1');
             }
-          }
+          };
           var failFn = function (err) {
-              // TODO
-              console.log('TODO error & stuff', err);
-          }
+            showContactsResult(req, res, {
+              type: 'danger',
+              msg: 'Could not get batches. Please try again later.'
+            });
+          };
           recurseapi.getBatches(doneFn, failFn);
         };
 
-        // TODO
-        var callbacDidntGetContacts = function (err) {
-          console.log('TODO err!!', err);
+        var fnDidntGetContacts = function (err) {
+          showContactsResult(req, res, {
+            type: 'danger',
+            msg: 'Could not get batch&rsquo;s contacts. Please try again later.'
+          });
         };
 
-        recurseapi.getContacts(
-          batchId,
-          callbackGotContacts,
-          callbacDidntGetContacts
-        );
+        console.log('getContacts(batchId', batchId);
+        recurseapi.getContacts(batchId, fnGotContacts, fnDidntGetContacts);
       }.bind(that, id);
-      // TODO Make previous bind() not needing `that`?
     }), callbackFinal);
   } else {
-    // TODO
+    showContactsResult(req, res, {
+      type: 'danger',
+      msg: 'There was some kind of problem with the batches&rsquo;s IDs,'
+        + ' please try again later.'
+    });
   }
-
-  // TODO
-  // I probably don't need this
-  // res.render('index', {
-  //   title: ids.join(',')
-  // });
 });
 
-// Request a batches' contacts
 router.get('/:bid', isLoggedIn, function (req, res, next) {
   // Get the batch ID provided
   var bid = req.params.bid;
@@ -187,9 +207,12 @@ router.get('/:bid', isLoggedIn, function (req, res, next) {
     res.status(200).send(people);
   };
 
-  // TODO
   var failureFn = function (a, b, c) {
-    console.log('ERROR:', a, b, c);
+    showContactsResult(req, res, {
+      type: 'danger',
+      msg: 'Couldn&rsquo;t fetch people from this batch.'
+        + ' Please try again later.'
+    });
   };
 
   recurseapi.getContacts(bid, successFn, failureFn);
@@ -222,9 +245,6 @@ passport.use('recurse', new OAuth2Strategy({
     authorizationURL: recurseBase + '/oauth/authorize',
     tokenURL: recurseBase + '/oauth/token'
 }, function (accessToken, refreshToken, profile, done) {
-  // TODO
-  // Store accessToken
-
   process.nextTick(function () {
     recurseapi.setToken(accessToken);
 
@@ -238,9 +258,6 @@ passport.use('google', new GoogleStrategy({
   clientSecret: google.clientSecret,
   callbackURL:  google.callbackUrl
 }, function (accessToken, refreshToken, profile, done) {
-  // TODO
-  // Store accessToken
-
   process.nextTick(function () {
     googleapi.setToken(accessToken);
 
@@ -257,23 +274,17 @@ passport.deserializeUser(function (user, done) {
   done(null, user);
 });
 
+// Checks if the user is logged in or not
 function isLoggedIn(req, res, next) {
   if (req.isAuthenticated()) {
     return next();
   }
 
-  console.log('\nNOT LOGGED IN:', req.baseUrl + '/auth');
-
   res.redirect(req.baseUrl + '/auth');
 }
 
-/**
- * Redirects to Contacts page with a message object (type & text message).
- * @param  {[type]} msg [description]
- * @return {[type]}     [description]
- */
+// Redirects to Contacts page with a message object (type & text message).
 function showContactsResult(req, res, msg) {
-  console.log('showContactsResult ->');
   req.session.msg = msg;
   res.redirect('/contacts');
 }
@@ -321,8 +332,6 @@ var recurseapi = (function () {
 
   /**
    * Get all batches.
-   * @param  {Function} Callback to handle the response.
-   * @return {[type]}
    */
   function getBatches(successFn, failureFn) {
     if (!this.token) {
@@ -336,9 +345,6 @@ var recurseapi = (function () {
     }
 
     var url = batches;
-
-    // TODO
-    // Will 200 restrict me on a few answers...?
     apireq.get(url, function (error, response, body) {
       if (!error && response.statusCode == 200) {
         // Cache the result first
@@ -346,19 +352,7 @@ var recurseapi = (function () {
 
         successFn(_cache.batches);
       } else {
-        // Default error callback & message
-        // TODO
-        // This won't work. That's it.
-        console.log("This won't work. That's it.")
-        var backupFn = function () {
-          // TODO
-          showContactsResult({
-            type: 'danger',
-            msg: 'Error loading batches, try again later.'
-          });
-        };
-
-        (failureFn || backupFn)(error);
+        failureFn(error);
       }
     });
   }
@@ -366,13 +360,11 @@ var recurseapi = (function () {
   /**
    * Get everyone from a single batch.
    * @param  {Number|String}  The ID of a batch.
-   * @param  {Function}       Callback to handle the response.
-   * @return {[type]}
    */
   function getContacts(batchId, successFn, failureFn) {
     if (!this.token || parseInt(batchId, 10) === NaN) {
-      // TODO
-      // Better error msg?
+      console.log('Here!');
+      failureFn();
       return;
     }
 
@@ -386,10 +378,7 @@ var recurseapi = (function () {
 
     var url = people.replace(/:batch_id/g, batchId);
 
-    // TODO
-    // Will 200 restrict me on a few answers...?
     apireq.get(url, function (error, response, body) {
-      console.log('stuff err', error, response.statusCode);
       if (!error && response.statusCode == 200) {
         // Cache the result using the batch ID
         body = JSON.parse(body);
@@ -402,6 +391,10 @@ var recurseapi = (function () {
     });
   }
 
+  /**
+   * Sets the access token for this service.
+   * @param {String} accessToken Access token required for this service.
+   */
   function setToken(accessToken) {
     if (accessToken && typeof accessToken === 'string') {
       this.token = accessToken;
@@ -425,31 +418,19 @@ var recurseapi = (function () {
 }());
 
 var googleapi = (function () {
-  //var base = 'https://www.google.com/m8/feeds/contacts/default/full/batch';
   var base = 'https://www.google.com/m8/feeds/contacts/default/full';
   var _token = null;
 
   // Get base object (can be extended after, using it as constructor)
   var apireq = request.defaults({});
 
-  function retrieveContacts(successFn, failureFn) {
-    if (!_token) {
-      return;
-    }
-
-    var url = base;
-
-    // TODO
-    // Will 200 restrict me on a few answers...?
-    apireq.get(url, function (error, response, body) {
-      if (!error && response.statusCode == 200) {
-        successFn(body);
-      } else {
-        failureFn(error);
-      }
-    });
-  }
-
+  /**
+   * Returns XML formated for a person's contacts according to Google's
+   * API directives.
+   * @param  {Object} info  A person's details (name, number, etc.).
+   * @param  {String} group The group ID where that person will be inserted.
+   * @return {String}       XML format of the person's data.
+   */
   function _personCard(info, group) {
     return '  <gd:name>'
       + '     <gd:fullName>' + info.name + '</gd:fullName>'
@@ -463,13 +444,19 @@ var googleapi = (function () {
       + info.phone
       + '  </gd:phoneNumber>' : '')
       + '  <atom:content type="text">'
-      + (info.twitter ? '    Twitter: https://twitter.com/' + info.twitter : '')
-      + (info.github ? '    GitHub: https://github.com/' + info.github : '')
+      + (info.twitter ? ' Twitter: https://twitter.com/' + info.twitter : '')
+      + (info.github ? '  GitHub: https://github.com/' + info.github : '')
       + '  </atom:content>'
       + (group ? '<gContact:groupMembershipInfo deleted="false"'
       + '  href="' + group + '"/>' : '');
   }
 
+  /**
+   * Wraps a batch of person's details into a proper batch XML action.
+   * @param  {Array}  people Array of people to insert on Google Contacts.
+   * @param  {String} group The group ID where that person will be inserted.
+   * @return {String}       XML format of the batch insert.
+   */
   function _batchAdd(people, group) {
     var head = '<?xml version="1.0" encoding="UTF-8"?>'
       + '<feed xmlns="http://www.w3.org/2005/Atom"'
@@ -489,8 +476,15 @@ var googleapi = (function () {
     }).join('') + tail;
   }
 
+  /**
+   * Creates a new group into Google Contacts.
+   * @param  {String}   name      Name for the group.
+   * @param  {Function} successFn Success callback function.
+   * @param  {Function} failureFn Failure callback function.
+   */
   function createGroup(name, successFn, failureFn) {
     if (!_token || !name) {
+      failureFn();
       return;
     }
 
@@ -518,24 +512,29 @@ var googleapi = (function () {
         return;
       }
 
-      // String -> JSON
-      // However, make _sure_ it's not XML
+      // String -> JSON. However, make _sure_ it's not XML
       if (msg.charAt(0) !== '<') {
         msg = JSON.parse(msg);
-        // Send the group ID (basically, an URL) to the callback
         successFn(msg.entry.id.$t);
       } else {
         failureFn(err, {
           type: 'danger',
           msg: 'Something wrong happened. Are you sure you don\'t have this'
-          + ' contact group already? Check your'
-          + ' <a href="https://contacts.google.com">Google Contacts</a>,'
+            + ' contact group already? Check your'
+            + ' <a href="https://contacts.google.com">Google Contacts</a>,'
         });
       }
     });
   }
 
-  function saveContacts(people, groupId, callback) {
+  /**
+   * Saves people's contacts into a group on Google Contacts.
+   * @param  {Array}    people    List of people to save.
+   * @param  {String}   groupId   ID of the group where to insert the people.
+   * @param  {Function} successFn Success callback function.
+   * @param  {Function} failureFn Failure callback function.
+   */
+  function saveContacts(people, groupId, successFn, failureFn) {
     var contacts = people.map(function (contact) {
       return {
         name:    contact.first_name + ' ' + contact.last_name,
@@ -556,24 +555,18 @@ var googleapi = (function () {
       }
     }, function (err, res, msg) {
       if (err || (res.statusCode !== 200 && res.statusCode !== 201)) {
-        console.log('FAILURE:', err, res.statusCode);
-
-        // TODO
-        //failureFn(err, res);
+        failureFn(err, res);
         return;
       }
 
-      // showContactsResult({
-      //   type: 'success',
-      //   msg: 'Contacts successfuly imported!\n' +
-      //     'Check them out at <a href="https://contacts.google.com">Google Contacts</a>'
-      // });
-      callback(null);
-
-      console.log('SUCCESS:', msg);
+      successFn(null);
     });
   }
 
+  /**
+   * Sets the data format for the answer.
+   * @param {String} format Response formar (json or xml).
+   */
   function setFormat(format) {
     apireq = apireq.defaults({
       qs: {
@@ -586,6 +579,10 @@ var googleapi = (function () {
     return apireq;
   }
 
+  /**
+   * Sets the access token for this service.
+   * @param {String} accessToken Access token required for this service.
+   */
   function setToken(accessToken) {
     if (accessToken && typeof accessToken === 'string') {
       _token = accessToken;
@@ -603,7 +600,6 @@ var googleapi = (function () {
   }
 
   return {
-    'retrieveContacts': retrieveContacts,
     'saveContacts': saveContacts,
     'createGroup': createGroup,
     'setToken': setToken

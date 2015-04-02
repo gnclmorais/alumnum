@@ -2,16 +2,14 @@ doctype html
 html
   head
     title= title
-    link(rel='stylesheet', href='/bootstrap/css/bootstrap.min.css')
     link(rel='stylesheet', href='/stylesheets/style.css')
+
   body
     header
       .head.boxxy
         h1 Alumnum
         p One-click contact number import for Recursers
         block action
-
-    block header
 
     .content.boxxy
       block alerts
@@ -24,5 +22,4 @@ html
         | for the <a href="http://recurse.com">Recurse Center</a>
 
     script(src='/javascripts/jquery.min.js')
-    script(src='/bootstrap/js/bootstrap.min.js')
     block scripts

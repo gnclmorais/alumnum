@@ -44,6 +44,30 @@ a {
   color: #61ae24;
 }
 
+h1,
+h2,
+h3 {
+  font-weight: 500;
+  margin-top: 25px;
+  margin-bottom: 12.5px;
+}
+
+h1 {
+  font-size: 46px;
+}
+
+h2 {
+  font-size: 38px;
+}
+
+h3 {
+  font-size: 31px;
+}
+
+p {
+  margin-top: 0;
+}
+
 
 /**
  *  ____     ___            ___
@@ -61,7 +85,8 @@ a {
 
 /** Maximum width */
 .boxxy {
-  max-width: 800px;
+  padding: 0 20px;
+  max-width: 760px;
   margin: 0 auto;
 }
 
@@ -145,7 +170,6 @@ input[type=checkbox] {
 
 /** Buttons */
 .button-main {
-  border: none;
   outline: none;
   padding: 15px 30px;
   border: 3px solid transparent;
@@ -231,6 +255,10 @@ header {
  *    YMMMM9   YMMMMM9  _MM_  _MM_  YMMM9  YMMMM9  _MM_  _MM_  YMMM9
  */
 
+.content {
+  margin-bottom: 50px;
+}
+
 /** Page sub title */
 .content h2 {
   padding-bottom: 5px;
@@ -239,6 +267,7 @@ header {
 
 /** No bullets */
 .content ul {
+  padding-left: 0;
   list-style-type: none;
 }
 
@@ -306,3 +335,34 @@ footer {
     cursor: pointer;
     -webkit-user-select: none;
   }
+
+
+/**
+ *  ________
+ *  `MMMMMMMb.
+ *   MM    `Mb
+ *   MM     MM    ____     ____   __ ____     _____   ___  __     ____
+ *   MM     MM   6MMMMb   6MMMMb\ `M6MMMMb   6MMMMMb  `MM 6MMb   6MMMMb\
+ *   MM    .M9  6M'  `Mb MM'    `  MM'  `Mb 6M'   `Mb  MMM9 `Mb MM'    `
+ *   MMMMMMM9'  MM    MM YM.       MM    MM MM     MM  MM'   MM YM.
+ *   MM  \M\    MMMMMMMM  YMMMMb   MM    MM MM     MM  MM    MM  YMMMMb
+ *   MM   \M\   MM            `Mb  MM    MM MM     MM  MM    MM      `Mb
+ *   MM    \M\  YM    d9 L    ,MM  MM.  ,M9 YM.   ,M9  MM    MM L    ,MM 68b
+ *  _MM_    \M\_ YMMMM9  MYMMMM9   MMYMMM9   YMMMMM9  _MM_  _MM_MYMMMM9  Y89
+ *                                 MM
+ *                                 MM
+ *                                _MM_
+ * Responsive bits.
+ **/
+
+@media (max-width: 799px) {
+  header .button-main {
+    right: 20px;
+  }
+
+  footer {
+    width: 80%;
+    margin: 0 auto;
+    line-height: 1.5;
+  }
+}
