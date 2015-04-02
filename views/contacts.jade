@@ -34,7 +34,6 @@ block content
                     data-id='#{batch.id}')
               label(for="people-batch-#{batch.id}")
 
-
             .people
 
 block scripts
@@ -54,41 +53,6 @@ block scripts
       }
     });
 
-    /*
-    // Batch loading
-    document.getElementById('batches').addEventListener('click', function (e) {
-      var trgt = $(e.target);
-
-      // If is an input, check what kind of input
-      if (trgt.is('input')) {
-        // If is a batch input, toogle of the inputs of its people
-        if (trgt.attr('name').indexOf('people-batch') > -1) {
-          var checkedStatus = trgt.attr('checked');
-          $(trgt).parents('.batch').find('.person').forEach(function (item) {
-            $(item).find('input').attr('checked', checkedStatus || null);
-          });
-        }
-        return;
-      }
-
-      var target = $(e.target).parents('li');
-      var people = target.find('.people');
-
-      if (people.find('.person').length > 0) {
-        people.toggle();
-      } else {
-        target.addClass('loading');
-
-        var batchId = target.data('id');
-        requestBatch(
-          batchId,
-          loadBatch.bind(window, $('[data-id="' + batchId + '"] .people')),
-          showError
-        );
-      }
-    });
-    */
-
     // Toggle checbox just by clicking the batch's title,
     // and enable/disable the Save button, according to inputs.
     $('.batch').on('click', function () {
@@ -100,27 +64,8 @@ block scripts
     });
 
     /**
-     * Requests the people in a batch using its ID.
-     */
-    function requestBatch(id, success, error) {
-      $.ajax({
-        type: 'GET',
-        url: '/contacts/' + id,
-        // type of data we are expecting in return:
-        dataType: 'html',
-        timeout: 1000,
-        success: success,
-        error: error
-      });
-    };
-
-    /**
      * Displays the people in a batch.
      */
     function loadBatch(container, batch) {
       $(container).html(batch);
-    };
-
-    function showError(err) {
-      // TODO
     };

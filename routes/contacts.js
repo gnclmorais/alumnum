@@ -439,10 +439,13 @@ var googleapi = (function () {
       + '    primary="true"'
       + '    address="' + info.email + '" />' : '')
       + (info.phone ? '  <gd:phoneNumber'
-      + '    rel="http://schemas.google.com/g/2005#work"'
+      + '    rel="http://schemas.google.com/g/2005#home"'
       + '    primary="true">'
       + info.phone
       + '  </gd:phoneNumber>' : '')
+      + '  <gd:organization rel="http://schemas.google.com/g/2005#other">'
+      + '    <gd:orgName>Recurse Center</gd:orgName>'
+      + '</gd:organization>'
       + '  <atom:content type="text">'
       + (info.twitter ? ' Twitter: https://twitter.com/' + info.twitter : '')
       + (info.github ? '  GitHub: https://github.com/' + info.github : '')
