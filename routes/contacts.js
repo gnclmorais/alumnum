@@ -90,7 +90,12 @@ router.get('/save', /*isLoggedIn,*/ function (req, res, next) {
   // Callback for all the requests
   var callbackFinal = function (err) {
     if (err) {
-      // TODO
+      showContactsResult(req, res, {
+        type: 'danger',
+        msg: 'Something wrong happened. Please check your'
+          + ' <a href="https://contacts.google.com">Google Contacts</a>'
+          + ' to make sure you don\'t already have the groups.'
+      });
       return;
     }
 
@@ -525,7 +530,7 @@ var googleapi = (function () {
           msg: 'Something wrong happened. Are you sure you don\'t have this'
           + ' contact group already? Check your'
           + ' <a href="https://contacts.google.com">Google Contacts</a>,'
-        })
+        });
       }
     });
   }
