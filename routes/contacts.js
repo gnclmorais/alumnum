@@ -8,9 +8,17 @@ var passport = require('passport');
 var OAuth2Strategy = require('passport-oauth').OAuth2Strategy;
 var GoogleStrategy = require('passport-google-oauth').OAuth2Strategy;
 // API keys
-var keyfile = require('../config/api_keys');
-var recurse = keyfile.recurse;
-var google = keyfile.google;
+var nconf = require('nconf').env();
+var recurse = {
+  'clientId':     nconf.get('RECURSE_ID'),
+  'clientSecret': nconf.get('RECURSE_SECRET'),
+  'callbackUrl':  nconf.get('RECURSE_REDIRECT')
+};
+var google = {
+  'clientId':     nconf.get('GOOGLE_ID'),
+  'clientSecret': nconf.get('GOOGLE_SECRET'),
+  'callbackUrl':  nconf.get('GOOGLE_REDIRECT')
+};
 
 
 /**
@@ -77,8 +85,12 @@ router.get('/recurse/callback', passport.authenticate('recurse', {
   failureRedirect: '/contacts/error'
 }));
 
+var scopes = [
+  'https://www.google.com/m8/feeds',
+  'https://www.googleapis.com/auth/userinfo.profile'
+];
 router.get('/google', passport.authenticate('google', {
-  scope: google.scopes.join(' ')
+  scope: scopes.join(' ')
 }));
 router.get('/google/callback', passport.authenticate('google', {
   successRedirect: '/contacts',
@@ -165,8 +177,7 @@ router.get('/save', isLoggedIn, function (req, res, next) {
                 fnFailureCreateGroup
               );
             } else {
-              // TODO
-              console.log('TODO Length != 1');
+              fnFailureCreateGroup();
             }
           };
           var failFn = function (err) {
@@ -185,7 +196,6 @@ router.get('/save', isLoggedIn, function (req, res, next) {
           });
         };
 
-        console.log('getContacts(batchId', batchId);
         recurseapi.getContacts(batchId, fnGotContacts, fnDidntGetContacts);
       }.bind(that, id);
     }), callbackFinal);
@@ -363,7 +373,6 @@ var recurseapi = (function () {
    */
   function getContacts(batchId, successFn, failureFn) {
     if (!this.token || parseInt(batchId, 10) === NaN) {
-      console.log('Here!');
       failureFn();
       return;
     }
@@ -445,7 +454,7 @@ var googleapi = (function () {
       + '  </gd:phoneNumber>' : '')
       + '  <gd:organization rel="http://schemas.google.com/g/2005#other">'
       + '    <gd:orgName>Recurse Center</gd:orgName>'
-      + '</gd:organization>'
+      + '  </gd:organization>'
       + '  <atom:content type="text">'
       + (info.twitter ? ' Twitter: https://twitter.com/' + info.twitter : '')
       + (info.github ? '  GitHub: https://github.com/' + info.github : '')
@@ -557,7 +566,9 @@ var googleapi = (function () {
         'content-type': 'application/atom+xml'
       }
     }, function (err, res, msg) {
-      if (err || (res.statusCode !== 200 && res.statusCode !== 201)) {
+      if (err || (res.statusCode !== 200 &&
+          res.statusCode !== 201 &&
+          res.statusCode !== 302)) {
         failureFn(err, res);
         return;
       }
